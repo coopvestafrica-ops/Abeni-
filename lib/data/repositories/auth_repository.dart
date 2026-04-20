@@ -21,21 +21,27 @@ class AuthRepository {
     if (_useFirebase) {
       return fb.FirebaseAuth.instance.authStateChanges().asyncMap((user) async {
         if (user == null) return null;
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        final data = doc.data();
-        if (data == null) {
-          return AppUser(
-            id: user.uid,
-            email: user.email ?? '',
-            fullName: user.displayName ?? '',
-            phone: '',
-            deliveryAddress: '',
-          );
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get()
+              .timeout(const Duration(seconds: 8));
+          final data = doc.data();
+          if (data != null) {
+            return AppUser.fromMap({...data, 'id': user.uid});
+          }
+        } catch (_) {
+          // Firestore may be offline or not yet provisioned; fall back to
+          // the minimal user object from the auth record.
         }
-        return AppUser.fromMap({...data, 'id': user.uid});
+        return AppUser(
+          id: user.uid,
+          email: user.email ?? '',
+          fullName: user.displayName ?? '',
+          phone: '',
+          deliveryAddress: '',
+        );
       });
     }
     return _mockAuthController.stream;
@@ -61,10 +67,16 @@ class AuthRepository {
         phone: phone,
         deliveryAddress: deliveryAddress,
       );
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.id)
-          .set(user.toMap());
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.id)
+            .set(user.toMap())
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // Auth succeeded; ignore Firestore write failures so the user can
+        // still sign in. Profile will be retried on next update.
+      }
       return user;
     }
     _mockUser = AppUser(
@@ -85,13 +97,18 @@ class AuthRepository {
     if (_useFirebase) {
       final cred = await fb.FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(cred.user!.uid)
-          .get();
-      final data = doc.data();
-      if (data != null) {
-        return AppUser.fromMap({...data, 'id': cred.user!.uid});
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(cred.user!.uid)
+            .get()
+            .timeout(const Duration(seconds: 8));
+        final data = doc.data();
+        if (data != null) {
+          return AppUser.fromMap({...data, 'id': cred.user!.uid});
+        }
+      } catch (_) {
+        // Firestore may be offline — continue with auth-only user.
       }
       return AppUser(
         id: cred.user!.uid,
@@ -126,7 +143,8 @@ class AuthRepository {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.id)
-          .set(user.toMap(), SetOptions(merge: true));
+          .set(user.toMap(), SetOptions(merge: true))
+          .timeout(const Duration(seconds: 10));
     } else {
       _mockUser = user;
       _mockAuthController.add(user);
