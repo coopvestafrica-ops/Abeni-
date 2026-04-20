@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "59586757498",
+    "project_id": "abeni-mart",
+    "storage_bucket": "abeni-mart.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:59586757498:android:6541d16b6909d7e5fb8cc3",
+        "android_client_info": {
+          "package_name": "com.abenimart.abeni_mart"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqV403vL9Gc0yseHMapeEMUC3OYhzri6E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

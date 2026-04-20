@@ -31,30 +31,34 @@ class DefaultFirebaseOptions {
   }
 
   // NOTE: these are placeholders. Running `Firebase.initializeApp` with
-  // them will fail — the app code handles that and falls back to demo mode.
+
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'REPLACE_ME',
-    storageBucket: 'REPLACE_ME',
-    authDomain: 'REPLACE_ME.firebaseapp.com',
+    apiKey: 'AIzaSyCQA-ARCd_WW-yq1wDTVa8VkJN-W5v4wE4',
+    appId: '1:59586757498:web:307f36d73b5ae938fb8cc3',
+    messagingSenderId: '59586757498',
+    projectId: 'abeni-mart',
+    authDomain: 'abeni-mart.firebaseapp.com',
+    storageBucket: 'abeni-mart.firebasestorage.app',
+    measurementId: 'G-CZXPQFW56X',
   );
 
+  // them will fail — the app code handles that and falls back to demo mode.
+
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'REPLACE_ME',
-    storageBucket: 'REPLACE_ME',
+    apiKey: 'AIzaSyDqV403vL9Gc0yseHMapeEMUC3OYhzri6E',
+    appId: '1:59586757498:android:6541d16b6909d7e5fb8cc3',
+    messagingSenderId: '59586757498',
+    projectId: 'abeni-mart',
+    storageBucket: 'abeni-mart.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
-    messagingSenderId: 'REPLACE_ME',
-    projectId: 'REPLACE_ME',
-    storageBucket: 'REPLACE_ME',
+    apiKey: 'AIzaSyCyzYQYWxxgn3cv44x6e2UIPfiCXLzl_MU',
+    appId: '1:59586757498:ios:6d3090e088faf7a8fb8cc3',
+    messagingSenderId: '59586757498',
+    projectId: 'abeni-mart',
+    storageBucket: 'abeni-mart.firebasestorage.app',
     iosBundleId: 'com.abenimart.abeniMart',
   );
+
 }
