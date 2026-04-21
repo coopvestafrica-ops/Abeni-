@@ -23,6 +23,10 @@ class AppConstants {
     'Carton',
     'Bottle',
     'Sachet',
+    'Keg',
+    'Roll',
+    'Tube',
+    'Bar',
   ];
 
   /// All possible units — used in admin-style product creation.
@@ -34,15 +38,18 @@ class AppConstants {
     CategoryMeta(id: 'beans', name: 'Beans', emoji: '🫘'),
     CategoryMeta(id: 'garri', name: 'Garri', emoji: '🥣'),
     CategoryMeta(id: 'sugar', name: 'Sugar', emoji: '🧂'),
-    CategoryMeta(id: 'grains', name: 'Grains', emoji: '🌾'),
-    CategoryMeta(id: 'pasta', name: 'Pasta', emoji: '🍝'),
-    CategoryMeta(id: 'noodles', name: 'Noodles', emoji: '🍜'),
-    CategoryMeta(id: 'beverages', name: 'Beverages', emoji: '🥤'),
-    CategoryMeta(id: 'oil', name: 'Cooking Oil', emoji: '🫒'),
     CategoryMeta(id: 'flour', name: 'Flour', emoji: '🌾'),
     CategoryMeta(id: 'semovita', name: 'Semovita', emoji: '🥘'),
-    CategoryMeta(id: 'seasonings', name: 'Seasonings', emoji: '🧄'),
-    CategoryMeta(id: 'others', name: 'Others', emoji: '🛒'),
+    CategoryMeta(id: 'grains', name: 'Grains', emoji: '🌽'),
+    CategoryMeta(id: 'beverages', name: 'Milk & Beverages', emoji: '🥛'),
+    CategoryMeta(id: 'cereals', name: 'Cereals', emoji: '🥣'),
+    CategoryMeta(id: 'noodles', name: 'Noodles', emoji: '🍜'),
+    CategoryMeta(id: 'pasta', name: 'Spaghetti', emoji: '🍝'),
+    CategoryMeta(id: 'seasonings', name: 'Tomato & Seasonings', emoji: '🍅'),
+    CategoryMeta(id: 'oil', name: 'Cooking Oil', emoji: '🫒'),
+    CategoryMeta(id: 'cleaning', name: 'Detergents & Cleaning', emoji: '🧼'),
+    CategoryMeta(id: 'personal_care', name: 'Personal Care', emoji: '🪥'),
+    CategoryMeta(id: 'tissue', name: 'Tissue & Paper', emoji: '🧻'),
   ];
 }
 

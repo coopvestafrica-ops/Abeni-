@@ -11,14 +11,22 @@ class ProductRepository {
 
   Future<List<Product>> fetchAll() async {
     if (_useFirebase) {
-      final snap =
-          await FirebaseFirestore.instance.collection('products').get();
-      if (snap.docs.isEmpty) {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('products')
+            .get()
+            .timeout(const Duration(seconds: 8));
+        if (snap.docs.isEmpty) {
+          return SampleCatalog.products;
+        }
+        return snap.docs
+            .map((d) => Product.fromMap(d.id, d.data()))
+            .toList();
+      } catch (_) {
+        // Firestore may be offline, denied by security rules, or not yet
+        // seeded; fall back to the built-in catalog so the UI still works.
         return SampleCatalog.products;
       }
-      return snap.docs
-          .map((d) => Product.fromMap(d.id, d.data()))
-          .toList();
     }
     await Future<void>.delayed(const Duration(milliseconds: 250));
     return SampleCatalog.products;

@@ -46,10 +46,16 @@ class OrderRepository {
     );
 
     if (_useFirebase) {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(order.id)
-          .set(order.toMap());
+      try {
+        await FirebaseFirestore.instance
+            .collection('orders')
+            .doc(order.id)
+            .set(order.toMap())
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {
+        // Keep a local copy so the user still sees their order in history.
+        _demoOrders.insert(0, order);
+      }
     } else {
       _demoOrders.insert(0, order);
     }
@@ -58,15 +64,26 @@ class OrderRepository {
 
   Future<List<AbeniOrder>> ordersForUser(String userId) async {
     if (_useFirebase) {
-      final snap = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('userId', isEqualTo: userId)
-          .get();
-      final list = snap.docs
-          .map((d) => AbeniOrder.fromMap(d.id, d.data()))
-          .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return list;
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('orders')
+            .where('userId', isEqualTo: userId)
+            .get()
+            .timeout(const Duration(seconds: 8));
+        final list = snap.docs
+            .map((d) => AbeniOrder.fromMap(d.id, d.data()))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // Merge any locally-cached orders for this user (e.g. ones that
+        // could not be written because of permission-denied).
+        final local = _demoOrders.where((o) => o.userId == userId);
+        for (final o in local) {
+          if (!list.any((x) => x.id == o.id)) list.insert(0, o);
+        }
+        return list;
+      } catch (_) {
+        return _demoOrders.where((o) => o.userId == userId).toList();
+      }
     }
     return _demoOrders.where((o) => o.userId == userId).toList();
   }
