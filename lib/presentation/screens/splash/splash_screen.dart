@@ -17,24 +17,21 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  /// How long the splash stays on screen before routing, regardless of how
+  /// quickly auth resolves. Keeps the storefront photo visible long enough
+  /// for the customer to read the name + tagline.
+  static const Duration _minDisplay = Duration(seconds: 30);
+
   bool _routed = false;
+  bool _minDisplayElapsed = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..forward();
-    _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
-    // A tiny minimum duration so the splash doesn't flash away if auth
-    // resolves instantly.
-    Timer(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() {});
+    Timer(_minDisplay, () {
+      if (!mounted) return;
+      setState(() => _minDisplayElapsed = true);
     });
   }
 
@@ -64,23 +61,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authStateProvider);
 
-    // Only route once auth has actually resolved (hasValue means the stream
-    // has emitted at least one event — it's null if signed out, non-null if
-    // signed in). This avoids the splash kicking logged-in users to /login
-    // before Firebase has emitted its cached session.
-    if (auth.hasValue && _controller.isCompleted == false) {
-      // let animation finish first
-    }
-    if (auth.hasValue) {
+    // Only route once BOTH auth has resolved AND the minimum display time
+    // has elapsed. This guarantees the splash is visible for ~30s before
+    // we navigate away, while still respecting the persisted session so
+    // logged-in users land on Home.
+    if (_minDisplayElapsed && auth.hasValue) {
       final loggedIn = auth.value != null;
       WidgetsBinding.instance.addPostFrameCallback((_) => _route(loggedIn));
     }
@@ -127,33 +115,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ScaleTransition(
-                    scale: _scale,
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 22,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          'assets/images/splash/app_logo_centered.png',
-                          width: 84,
-                          height: 84,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
                   const Text(
                     AppConstants.appName,
                     style: TextStyle(
@@ -204,8 +165,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   String _loadingLabel(AsyncValue<Object?> auth) {
-    if (auth.isLoading) return 'Starting up…';
     if (_routed) return 'Unlocking…';
+    if (auth.isLoading) return 'Starting up…';
+    if (!_minDisplayElapsed) return 'Welcome to Abeni Mart…';
     return 'Ready';
   }
 }
