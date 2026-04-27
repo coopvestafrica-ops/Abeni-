@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/models/cart_item.dart';
 import '../../providers/providers.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/product_image.dart';
 
 class CartScreen extends ConsumerWidget {
   final bool embedded;
@@ -138,17 +138,15 @@ class _CartTile extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: CachedNetworkImage(
-              imageUrl: item.product.imageUrl,
+            child: SizedBox(
               width: 70,
               height: 70,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
-                width: 70,
-                height: 70,
-                color: AppColors.divider.withOpacity(0.3),
-                child: const Icon(Icons.shopping_basket_rounded,
-                    color: AppColors.textMuted),
+              child: Container(
+                color: Colors.white,
+                child: ProductImage(
+                  imageUrl: item.product.imageUrl,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),

@@ -17,6 +17,32 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _search = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Map of `categoryId -> lowercased category name` so search can match
+  /// what the user *sees* (e.g. typing "milk" finds everything in the
+  /// "Milk & Beverages" category even if the word "milk" isn't in the
+  /// product name).
+  static final Map<String, String> _categoryNames = {
+    for (final c in AppConstants.categories) c.id: c.name.toLowerCase(),
+  };
+
+  bool _matchesSearch(Product p) {
+    if (_search.isEmpty) return true;
+    final q = _search;
+    if (p.name.toLowerCase().contains(q)) return true;
+    if (p.description.toLowerCase().contains(q)) return true;
+    final catName = _categoryNames[p.categoryId];
+    if (catName != null && catName.contains(q)) return true;
+    if (p.categoryId.toLowerCase().contains(q)) return true;
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +65,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               sliver: SliverToBoxAdapter(
                 child: _SearchBar(
-                  onChanged: (v) => setState(() => _search = v.toLowerCase()),
+                  controller: _searchController,
+                  onChanged: (v) =>
+                      setState(() => _search = v.trim().toLowerCase()),
+                  onClear: () {
+                    _searchController.clear();
+                    setState(() => _search = '');
+                  },
                 ),
               ),
             ),
@@ -63,12 +95,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverToBoxAdapter(
               child: productsAsync.when(
                 data: (products) {
-                  final featured = products
-                      .where((p) =>
-                          p.featured &&
-                          (_search.isEmpty ||
-                              p.name.toLowerCase().contains(_search)))
-                      .toList();
+                  // Hide the "Featured" carousel while the user is searching
+                  // so the result list isn't competing with it.
+                  if (_search.isNotEmpty) return const SizedBox.shrink();
+                  final featured =
+                      products.where((p) => p.featured).toList();
                   if (featured.isEmpty) return const SizedBox.shrink();
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,9 +129,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 error: (_, __) => const SizedBox.shrink(),
               ),
             ),
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-              sliver: SliverToBoxAdapter(child: _SectionTitle('All products')),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              sliver: SliverToBoxAdapter(
+                child: _SectionTitle(
+                  _search.isEmpty ? 'All products' : 'Search results',
+                ),
+              ),
             ),
             productsAsync.when(
               loading: () => const SliverToBoxAdapter(
@@ -116,11 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               data: (products) {
-                final filtered = _search.isEmpty
-                    ? products
-                    : products
-                        .where((p) => p.name.toLowerCase().contains(_search))
-                        .toList();
+                final filtered = products.where(_matchesSearch).toList();
                 return _ProductGrid(products: filtered);
               },
             ),
@@ -224,17 +255,37 @@ class _Header extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  const _SearchBar({required this.onChanged});
+  final VoidCallback onClear;
+  const _SearchBar({
+    required this.controller,
+    required this.onChanged,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      onChanged: onChanged,
-      decoration: const InputDecoration(
-        hintText: 'Search rice, beans, garri, sugar…',
-        prefixIcon: Icon(Icons.search_rounded),
-      ),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        return TextField(
+          controller: controller,
+          onChanged: onChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Search rice, beans, garri, Milo, Dettol…',
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.clear_rounded),
+                    onPressed: onClear,
+                    tooltip: 'Clear',
+                  ),
+          ),
+        );
+      },
     );
   }
 }

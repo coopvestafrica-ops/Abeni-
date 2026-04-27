@@ -10,7 +10,9 @@ plugins {
 
 android {
     namespace = "com.abenimart.abeni_mart"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to 35 because several Flutter plugins (e.g.
+    // flutter_plugin_android_lifecycle) now require compileSdk 35.
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

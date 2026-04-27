@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 import '../../widgets/primary_button.dart';
@@ -33,10 +34,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await ref.read(authRepositoryProvider).login(
+      final user = await ref.read(authRepositoryProvider).login(
             email: _email.text.trim(),
             password: _password.text,
           );
+      // Register this device for order-status push notifications.
+      // ignore: unawaited_futures
+      NotificationService.instance.registerForUser(user.id);
       if (!mounted) return;
       context.go('/home');
     } on fb.FirebaseAuthException catch (e) {
@@ -69,14 +73,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: 96,
+                      height: 96,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.15),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                      child: const Text('🛒', style: TextStyle(fontSize: 36)),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.asset(
+                          'assets/images/splash/app_logo_centered.png',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Text(
+                            '🛒',
+                            style: TextStyle(fontSize: 40),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     const Text(

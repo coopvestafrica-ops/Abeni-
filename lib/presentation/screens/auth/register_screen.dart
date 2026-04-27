@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/notification_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 import '../../widgets/primary_button.dart';
@@ -38,13 +39,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      await ref.read(authRepositoryProvider).register(
+      final user = await ref.read(authRepositoryProvider).register(
             fullName: _name.text.trim(),
             email: _email.text.trim(),
             phone: _phone.text.trim(),
             password: _password.text,
             deliveryAddress: _address.text.trim(),
           );
+      // ignore: unawaited_futures
+      NotificationService.instance.registerForUser(user.id);
       if (!mounted) return;
       context.go('/home');
     } on fb.FirebaseAuthException catch (e) {

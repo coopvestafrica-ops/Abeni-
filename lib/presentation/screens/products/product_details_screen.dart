@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -10,6 +9,7 @@ import '../../../data/models/product.dart';
 import '../../../data/models/product_unit.dart';
 import '../../providers/providers.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/product_image.dart';
 
 class ProductDetailsScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -67,15 +67,11 @@ class _ProductDetailsScreenState extends ConsumerState<ProductDetailsScreen> {
             expandedHeight: 280,
             backgroundColor: Colors.white,
             flexibleSpace: FlexibleSpaceBar(
-              background: CachedNetworkImage(
-                imageUrl: product.imageUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => Container(
-                  color: AppColors.divider.withOpacity(0.3),
-                  child: const Center(
-                    child: Icon(Icons.shopping_basket_rounded,
-                        size: 64, color: AppColors.textMuted),
-                  ),
+              background: Container(
+                color: Colors.white,
+                child: ProductImage(
+                  imageUrl: product.imageUrl,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),

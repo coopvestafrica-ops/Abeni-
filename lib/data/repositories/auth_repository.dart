@@ -1,21 +1,61 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
 import '../services/firebase_service.dart';
 
 /// Handles authentication.
-/// Uses Firebase when initialized; otherwise a local in-memory mock so the
-/// UI is fully functional in demo mode.
+///
+/// - **Firebase mode** — uses [fb.FirebaseAuth], which already persists
+///   sessions on Android / iOS, so the customer stays signed in across app
+///   restarts until they explicitly sign out.
+/// - **Demo mode** — persists the mock user in [SharedPreferences] so the
+///   in-memory catalog build also stays signed in until logout.
 class AuthRepository {
-  AuthRepository();
+  AuthRepository() {
+    // In demo mode we manually emit the cached session so the auth stream
+    // resolves for the splash screen. Firebase mode already emits its own
+    // initial value through [FirebaseAuth.authStateChanges].
+    if (!_useFirebase) {
+      _hydrateMock();
+    }
+  }
+
+  static const _prefsKey = 'abeni_mock_user';
 
   AppUser? _mockUser;
-  final _mockAuthController = StreamController<AppUser?>.broadcast();
+  final StreamController<AppUser?> _mockAuthController =
+      StreamController<AppUser?>.broadcast();
 
   bool get _useFirebase => FirebaseService.isInitialized;
+
+  Future<void> _hydrateMock() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefsKey);
+      if (raw != null) {
+        _mockUser = AppUser.fromMap(
+          Map<String, dynamic>.from(jsonDecode(raw) as Map),
+        );
+      }
+    } catch (_) {
+      // Ignore malformed cache.
+    }
+    _mockAuthController.add(_mockUser);
+  }
+
+  Future<void> _persistMock(AppUser? user) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (user == null) {
+      await prefs.remove(_prefsKey);
+    } else {
+      await prefs.setString(_prefsKey, jsonEncode(user.toMap()));
+    }
+  }
 
   Stream<AppUser?> authStateChanges() {
     if (_useFirebase) {
@@ -86,6 +126,7 @@ class AuthRepository {
       phone: phone,
       deliveryAddress: deliveryAddress,
     );
+    await _persistMock(_mockUser);
     _mockAuthController.add(_mockUser);
     return _mockUser!;
   }
@@ -125,6 +166,7 @@ class AuthRepository {
       phone: '+234 000 000 0000',
       deliveryAddress: '123 Demo Street, Lagos',
     );
+    await _persistMock(_mockUser);
     _mockAuthController.add(_mockUser);
     return _mockUser!;
   }
@@ -134,6 +176,7 @@ class AuthRepository {
       await fb.FirebaseAuth.instance.signOut();
     } else {
       _mockUser = null;
+      await _persistMock(null);
       _mockAuthController.add(null);
     }
   }
@@ -147,6 +190,7 @@ class AuthRepository {
           .timeout(const Duration(seconds: 10));
     } else {
       _mockUser = user;
+      await _persistMock(user);
       _mockAuthController.add(user);
     }
     return user;

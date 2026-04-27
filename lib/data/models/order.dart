@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'order_line.dart';
 
-enum OrderStatus { pending, processing, delivered, cancelled }
+enum OrderStatus { pending, processing, outForDelivery, delivered, cancelled }
 
 extension OrderStatusX on OrderStatus {
   String get label {
@@ -11,6 +11,8 @@ extension OrderStatusX on OrderStatus {
         return 'Pending';
       case OrderStatus.processing:
         return 'Processing';
+      case OrderStatus.outForDelivery:
+        return 'Out for delivery';
       case OrderStatus.delivered:
         return 'Delivered';
       case OrderStatus.cancelled:
@@ -18,10 +20,30 @@ extension OrderStatusX on OrderStatus {
     }
   }
 
+  /// Serialises to a stable wire key (matches the value the backend / FCM
+  /// payload should send).
+  String get wireKey {
+    switch (this) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.processing:
+        return 'processing';
+      case OrderStatus.outForDelivery:
+        return 'out_for_delivery';
+      case OrderStatus.delivered:
+        return 'delivered';
+      case OrderStatus.cancelled:
+        return 'cancelled';
+    }
+  }
+
   static OrderStatus fromString(String? v) {
-    switch ((v ?? '').toLowerCase()) {
+    switch ((v ?? '').toLowerCase().replaceAll(' ', '_')) {
       case 'processing':
         return OrderStatus.processing;
+      case 'out_for_delivery':
+      case 'out-for-delivery':
+        return OrderStatus.outForDelivery;
       case 'delivered':
         return OrderStatus.delivered;
       case 'cancelled':
@@ -100,7 +122,7 @@ class AbeniOrder extends Equatable {
             : 'payOnDelivery',
         'deliveryAddress': deliveryAddress,
         'phone': phone,
-        'status': status.label.toLowerCase(),
+        'status': status.wireKey,
         'createdAt': createdAt.toIso8601String(),
       };
 

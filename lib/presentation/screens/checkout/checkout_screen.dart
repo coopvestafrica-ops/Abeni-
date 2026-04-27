@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/store_info.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/models/order.dart';
@@ -152,6 +154,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             onTap: () =>
                 setState(() => _payment = PaymentMethod.bankTransfer),
           ),
+          if (_payment == PaymentMethod.bankTransfer) ...[
+            const SizedBox(height: 12),
+            const _BankTransferDetails(account: StoreInfo.payoutAccount),
+          ],
           const SizedBox(height: 24),
           const _Section(title: 'Order summary'),
           Container(
@@ -213,6 +219,97 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _BankTransferDetails extends StatelessWidget {
+  final BankAccount account;
+  const _BankTransferDetails({required this.account});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Transfer to:',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          _row('Bank', account.bankName),
+          _row('Account Name', account.accountName),
+          Row(
+            children: [
+              Expanded(
+                child: _row('Account Number', account.accountNumber),
+              ),
+              IconButton(
+                tooltip: 'Copy account number',
+                icon: const Icon(Icons.copy_rounded,
+                    size: 18, color: AppColors.primary),
+                onPressed: () async {
+                  await Clipboard.setData(
+                      ClipboardData(text: account.accountNumber));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Account number copied'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'After transfer, please keep your receipt. Your order will be '
+            'confirmed once we receive payment.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

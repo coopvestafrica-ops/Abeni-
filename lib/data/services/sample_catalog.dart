@@ -18,39 +18,79 @@ import '../models/product_unit.dart';
 class SampleCatalog {
   SampleCatalog._();
 
-  // --- Image URLs (Unsplash — royalty free) ---
-  static const String _img =
-      'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=800';
-  static const String _imgRice =
-      'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=800';
-  static const String _imgBeans =
-      'https://images.unsplash.com/photo-1611575619236-12f74c5bbdaf?w=800';
-  static const String _imgGarri =
-      'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=800';
-  static const String _imgSugar =
-      'https://images.unsplash.com/photo-1581006852262-e4307cf6283a?w=800';
-  static const String _imgFlour =
-      'https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=800';
-  static const String _imgSemo =
-      'https://images.unsplash.com/photo-1604908554049-01a1bf8b79f5?w=800';
-  static const String _imgMilk =
-      'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800';
-  static const String _imgCereal =
-      'https://images.unsplash.com/photo-1517686469429-8bdb88b9f907?w=800';
-  static const String _imgNoodles =
-      'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800';
-  static const String _imgSpag =
-      'https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=800';
-  static const String _imgTomato =
-      'https://images.unsplash.com/photo-1546470427-e26264be0b0d?w=800';
-  static const String _imgOil =
-      'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=800';
-  static const String _imgSoap =
-      'https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=800';
-  static const String _imgCare =
-      'https://images.unsplash.com/photo-1559591935-c6c92c6c6c52?w=800';
-  static const String _imgTissue =
-      'https://images.unsplash.com/photo-1583947582886-f40ec95dd752?w=800';
+  // --- Image asset paths (local, uniform 800x800) ---
+  static const String _p = 'assets/images/products';
+
+  // Staples / grains / beans — we only have branded photos for a few; the
+  // rest intentionally reuse a similar staple image so the catalog still
+  // looks clean. Replace these when you ship more real photos.
+  static const String _imgRice = '$_p/rice.jpg';
+  static const String _imgBeansWhite = '$_p/beans_white.jpg';
+  static const String _imgBeansOloyin = '$_p/beans_oloyin.jpg';
+  static const String _imgGarri = '$_p/garri.jpg';
+  static const String _imgSugar = '$_p/sugar.jpg';
+  static const String _imgFlour = '$_p/flour.jpg';
+  static const String _imgMillet = '$_p/rice.jpg'; // no dedicated photo yet
+
+  // Semovita
+  static const String _imgSemo10 = '$_p/semovita_10kg.jpg';
+  static const String _imgSemo5 = '$_p/semovita_5kg.jpg';
+  static const String _imgSemo2 = '$_p/semovita_2kg.jpg';
+
+  // Milk & beverages
+  static const String _imgMilo3in1 = '$_p/milo_3in1.jpg';
+  static const String _imgPeakSachet = '$_p/peak_sachet.jpg';
+  static const String _imgPeakRefill = '$_p/peak_refill.jpg';
+  static const String _imgThreeCrownSachet = '$_p/three_crown_sachet.jpg';
+  static const String _imgThreeCrownRefill = '$_p/three_crown_refill.jpg';
+  static const String _imgThreeCrownCan = '$_p/three_crown_can.jpg';
+  static const String _imgBournvita = '$_p/bournvita_refill.jpg';
+  static const String _imgBournvitaSachet = '$_p/bournvita_sachet.jpg';
+  static const String _imgMilo400 = '$_p/milo_400.jpg';
+  static const String _imgMilo800 = '$_p/milo_800.jpg';
+  static const String _imgTopTea = '$_p/top_tea.jpg';
+
+  // Cereals
+  static const String _imgNascoCornflakes = '$_p/nasco_cornflakes.jpg';
+  static const String _imgGoldenMorn = '$_p/golden_morn.jpg';
+
+  // Noodles & pasta
+  static const String _imgGpNoodles = '$_p/gp_noodles.jpg';
+  static const String _imgGpJollof = '$_p/gp_jollof.jpg';
+  static const String _imgIndomieSuper = '$_p/indomie_super.jpg';
+  static const String _imgSpag8mm = '$_p/spaghetti_gp_8mm.jpg';
+  static const String _imgAnnybSpag = '$_p/annyb_spag.jpg';
+
+  // Seasonings / tomato
+  static const String _imgGinoPaste = '$_p/gino_paste.jpg';
+  static const String _imgDericaPaste = '$_p/derica_paste.jpg';
+  static const String _imgPartyJollof = '$_p/party_jollof.jpg';
+  static const String _imgMagnate = '$_p/magnate_tomato.jpg';
+  static const String _imgHotPepper = '$_p/hot_pepper.jpg';
+  static const String _imgMaggi = '$_p/maggi_know.jpg';
+
+  // Oils
+  static const String _imgEmperor = '$_p/emperor_25l.jpg';
+  static const String _imgKingOil = '$_p/king_oil_1000.jpg';
+  static const String _imgGpSoya = '$_p/gp_soya_oil.jpg';
+
+  // Detergents & cleaning
+  static const String _imgNittol = '$_p/nittol.jpg';
+  static const String _imgWaw = '$_p/waw.jpg';
+  static const String _imgDettolCool = '$_p/dettol_cool.jpg';
+  static const String _imgDettolOriginal = '$_p/dettol_original.jpg';
+  static const String _imgSepto = '$_p/septo.jpg';
+
+  // Personal care
+  static const String _imgColgate = '$_p/colgate_herbal.jpg';
+  static const String _imgPepsodent123 = '$_p/pepsodent_123.jpg';
+  static const String _imgPepsodentOrd = '$_p/pepsodent_ord.jpg';
+  static const String _imgOralB = '$_p/oralb.jpg';
+  static const String _imgEva = '$_p/eva_soap.jpg';
+  static const String _imgCloseUp = '$_p/close_up.jpg';
+
+  // Tissue & paper
+  static const String _imgTissue = '$_p/tissue_paper.jpg';
 
   static final List<Product> products = [
     // ========================================================
@@ -73,7 +113,7 @@ class SampleCatalog {
       categoryId: 'beans',
       description:
           'Clean, well-graded white beans. Great for moi-moi, akara and porridge.',
-      imageUrl: _imgBeans,
+      imageUrl: _imgBeansWhite,
       featured: true,
       units: _congoUnits(congo: 2600, halfCongo: 1350, paint: 5400, halfPaint: 2800, bag: 82000),
     ),
@@ -83,7 +123,7 @@ class SampleCatalog {
       categoryId: 'beans',
       description:
           'Sweet Oloyin beans — soft, flavourful and perfect for beans porridge.',
-      imageUrl: _imgBeans,
+      imageUrl: _imgBeansOloyin,
       units: _congoUnits(congo: 2800, halfCongo: 1450, paint: 5800, halfPaint: 3000, bag: 86000),
     ),
     Product(
@@ -92,7 +132,7 @@ class SampleCatalog {
       categoryId: 'beans',
       description:
           'Full-bodied drum beans — clean and well-dried.',
-      imageUrl: _imgBeans,
+      imageUrl: _imgBeansOloyin,
       units: _congoUnits(congo: 2700, halfCongo: 1400, paint: 5600, halfPaint: 2900, bag: 84000),
     ),
     Product(
@@ -133,7 +173,7 @@ class SampleCatalog {
       categoryId: 'semovita',
       description:
           'Soft, smooth semovita — perfect swallow with any soup. 10kg bag.',
-      imageUrl: _imgSemo,
+      imageUrl: _imgSemo10,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Bag', price: 14500, stock: 40),
@@ -145,9 +185,20 @@ class SampleCatalog {
       categoryId: 'semovita',
       description:
           'Family size semovita — 5kg bag.',
-      imageUrl: _imgSemo,
+      imageUrl: _imgSemo5,
       units: const [
         ProductUnit(unitName: 'Bag', price: 7800, stock: 60),
+      ],
+    ),
+    Product(
+      id: 'semovita_2kg',
+      name: 'Semovita 2kg',
+      categoryId: 'semovita',
+      description:
+          'Compact semovita — 2kg bag. Premium quality semolina, vitamin A fortified.',
+      imageUrl: _imgSemo2,
+      units: const [
+        ProductUnit(unitName: 'Bag', price: 3400, stock: 80),
       ],
     ),
 
@@ -156,10 +207,10 @@ class SampleCatalog {
     // ========================================================
     Product(
       id: 'milk_3in1',
-      name: 'Milk 3-in-1',
+      name: 'Milo 3-in-1',
       categoryId: 'beverages',
-      description: 'Convenient 3-in-1 sachet — milk, sugar and cocoa in one.',
-      imageUrl: _imgMilk,
+      description: 'Milo 3-in-1 sachet — milk, sugar and Milo in one.',
+      imageUrl: _imgMilo3in1,
       units: const [
         ProductUnit(unitName: 'Sachet', price: 100, stock: 500),
         ProductUnit(unitName: 'Pack', price: 1800, stock: 90),
@@ -171,7 +222,7 @@ class SampleCatalog {
       name: 'Peak Milk (Sachet)',
       categoryId: 'beverages',
       description: 'Full cream Peak milk — convenient sachet size.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgPeakSachet,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Sachet', price: 150, stock: 600),
@@ -184,7 +235,7 @@ class SampleCatalog {
       name: 'Peak Milk (Refill)',
       categoryId: 'beverages',
       description: 'Economy Peak milk refill pack.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgPeakRefill,
       units: const [
         ProductUnit(unitName: 'Pack', price: 2200, stock: 70),
         ProductUnit(unitName: 'Carton', price: 31000, stock: 10),
@@ -195,7 +246,7 @@ class SampleCatalog {
       name: 'Three Crown Milk',
       categoryId: 'beverages',
       description: 'Three Crown instant full cream milk — sachet.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgThreeCrownSachet,
       units: const [
         ProductUnit(unitName: 'Sachet', price: 140, stock: 500),
         ProductUnit(unitName: 'Pack', price: 2300, stock: 80),
@@ -203,11 +254,23 @@ class SampleCatalog {
       ],
     ),
     Product(
+      id: 'three_crown_can',
+      name: 'Three Crown Evaporated Milk',
+      categoryId: 'beverages',
+      description:
+          'Three Crown evaporated tinned milk — creamy and rich for tea, coffee or custard.',
+      imageUrl: _imgThreeCrownCan,
+      units: const [
+        ProductUnit(unitName: 'Piece', price: 450, stock: 300),
+        ProductUnit(unitName: 'Carton', price: 10500, stock: 18),
+      ],
+    ),
+    Product(
       id: 'three_crown_refill',
       name: 'Three Crown Refill',
       categoryId: 'beverages',
       description: 'Three Crown economy refill pack.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgThreeCrownRefill,
       units: const [
         ProductUnit(unitName: 'Pack', price: 2100, stock: 70),
         ProductUnit(unitName: 'Carton', price: 30000, stock: 10),
@@ -218,7 +281,7 @@ class SampleCatalog {
       name: 'Bournvita',
       categoryId: 'beverages',
       description: 'Cadbury Bournvita chocolate malt drink.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgBournvitaSachet,
       units: const [
         ProductUnit(unitName: 'Pack', price: 3200, stock: 80),
         ProductUnit(unitName: 'Carton', price: 36000, stock: 12),
@@ -229,7 +292,7 @@ class SampleCatalog {
       name: 'Bournvita Refill',
       categoryId: 'beverages',
       description: 'Bournvita economy refill pack.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgBournvita,
       units: const [
         ProductUnit(unitName: 'Pack', price: 2800, stock: 80),
         ProductUnit(unitName: 'Carton', price: 32000, stock: 12),
@@ -239,8 +302,8 @@ class SampleCatalog {
       id: 'milo_400',
       name: 'Milo 400g',
       categoryId: 'beverages',
-      description: 'Milo chocolate drink — 400g tin.',
-      imageUrl: _imgMilk,
+      description: 'Milo chocolate drink — 400g pack.',
+      imageUrl: _imgMilo400,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Piece', price: 2300, stock: 150),
@@ -251,8 +314,8 @@ class SampleCatalog {
       id: 'milo_800',
       name: 'Milo 800g',
       categoryId: 'beverages',
-      description: 'Milo chocolate drink — 800g tin.',
-      imageUrl: _imgMilk,
+      description: 'Milo chocolate drink — 800g pack.',
+      imageUrl: _imgMilo800,
       units: const [
         ProductUnit(unitName: 'Piece', price: 4200, stock: 120),
         ProductUnit(unitName: 'Carton', price: 48000, stock: 10),
@@ -263,7 +326,7 @@ class SampleCatalog {
       name: 'Top Tea',
       categoryId: 'beverages',
       description: 'Top Tea — black tea bags.',
-      imageUrl: _imgMilk,
+      imageUrl: _imgTopTea,
       units: const [
         ProductUnit(unitName: 'Pack', price: 700, stock: 200),
         ProductUnit(unitName: 'Carton', price: 14000, stock: 15),
@@ -278,7 +341,7 @@ class SampleCatalog {
       name: 'Nasco Cornflakes',
       categoryId: 'cereals',
       description: 'Nasco cornflakes — crispy breakfast cereal.',
-      imageUrl: _imgCereal,
+      imageUrl: _imgNascoCornflakes,
       units: const [
         ProductUnit(unitName: 'Piece', price: 1800, stock: 120),
         ProductUnit(unitName: 'Carton', price: 32000, stock: 12),
@@ -289,7 +352,7 @@ class SampleCatalog {
       name: 'Golden Morn 300g',
       categoryId: 'cereals',
       description: 'Golden Morn maize and soya cereal — 300g.',
-      imageUrl: _imgCereal,
+      imageUrl: _imgGoldenMorn,
       units: const [
         ProductUnit(unitName: 'Piece', price: 1200, stock: 150),
         ProductUnit(unitName: 'Carton', price: 25000, stock: 12),
@@ -300,7 +363,7 @@ class SampleCatalog {
       name: 'Golden Morn 600g',
       categoryId: 'cereals',
       description: 'Golden Morn — 600g family pack.',
-      imageUrl: _imgCereal,
+      imageUrl: _imgGoldenMorn,
       units: const [
         ProductUnit(unitName: 'Piece', price: 2300, stock: 120),
         ProductUnit(unitName: 'Carton', price: 38000, stock: 10),
@@ -311,7 +374,7 @@ class SampleCatalog {
       name: 'Golden Morn 900g',
       categoryId: 'cereals',
       description: 'Golden Morn — 900g economy size.',
-      imageUrl: _imgCereal,
+      imageUrl: _imgGoldenMorn,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Piece', price: 3300, stock: 100),
@@ -324,10 +387,10 @@ class SampleCatalog {
     // ========================================================
     Product(
       id: 'gp_noodles_ord',
-      name: 'Golden Penny Noodles (Ordinary)',
+      name: 'Golden Penny Noodles (Chicken)',
       categoryId: 'noodles',
       description: 'Golden Penny instant noodles — classic chicken flavour.',
-      imageUrl: _imgNoodles,
+      imageUrl: _imgGpNoodles,
       units: const [
         ProductUnit(unitName: 'Piece', price: 350, stock: 500),
         ProductUnit(unitName: 'Carton', price: 14500, stock: 25),
@@ -338,7 +401,7 @@ class SampleCatalog {
       name: 'Golden Penny Noodles (Jollof)',
       categoryId: 'noodles',
       description: 'Golden Penny jollof flavour instant noodles.',
-      imageUrl: _imgNoodles,
+      imageUrl: _imgGpJollof,
       units: const [
         ProductUnit(unitName: 'Piece', price: 380, stock: 450),
         ProductUnit(unitName: 'Carton', price: 15500, stock: 25),
@@ -349,7 +412,7 @@ class SampleCatalog {
       name: 'Indomie Super Pack',
       categoryId: 'noodles',
       description: 'Indomie Super Pack — bigger size, same taste.',
-      imageUrl: _imgNoodles,
+      imageUrl: _imgIndomieSuper,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Piece', price: 500, stock: 500),
@@ -361,7 +424,7 @@ class SampleCatalog {
       name: 'Spaghetti 8mm',
       categoryId: 'pasta',
       description: 'Thick spaghetti, 8mm cut — cooks firm.',
-      imageUrl: _imgSpag,
+      imageUrl: _imgSpag8mm,
       units: const [
         ProductUnit(unitName: 'Piece', price: 900, stock: 250),
         ProductUnit(unitName: 'Carton', price: 19500, stock: 20),
@@ -372,7 +435,7 @@ class SampleCatalog {
       name: 'Golden Spaghetti Long',
       categoryId: 'pasta',
       description: 'Golden Penny long spaghetti — premium quality.',
-      imageUrl: _imgSpag,
+      imageUrl: _imgSpag8mm,
       units: const [
         ProductUnit(unitName: 'Piece', price: 950, stock: 220),
         ProductUnit(unitName: 'Carton', price: 20500, stock: 20),
@@ -383,7 +446,7 @@ class SampleCatalog {
       name: 'Anny B Spaghetti',
       categoryId: 'pasta',
       description: 'Anny B spaghetti — everyday family size.',
-      imageUrl: _imgSpag,
+      imageUrl: _imgAnnybSpag,
       units: const [
         ProductUnit(unitName: 'Piece', price: 850, stock: 220),
         ProductUnit(unitName: 'Carton', price: 18500, stock: 20),
@@ -398,7 +461,7 @@ class SampleCatalog {
       name: 'Gino Tomato Paste',
       categoryId: 'seasonings',
       description: 'Gino tomato paste — rich and flavourful.',
-      imageUrl: _imgTomato,
+      imageUrl: _imgGinoPaste,
       units: const [
         ProductUnit(unitName: 'Piece', price: 250, stock: 600),
         ProductUnit(unitName: 'Pack', price: 2800, stock: 80),
@@ -410,7 +473,7 @@ class SampleCatalog {
       name: 'Derica Tomato Paste',
       categoryId: 'seasonings',
       description: 'Derica tomato paste — everyday jollof base.',
-      imageUrl: _imgTomato,
+      imageUrl: _imgDericaPaste,
       units: const [
         ProductUnit(unitName: 'Piece', price: 220, stock: 600),
         ProductUnit(unitName: 'Pack', price: 2500, stock: 80),
@@ -422,7 +485,7 @@ class SampleCatalog {
       name: 'Party Jollof Gino',
       categoryId: 'seasonings',
       description: 'Gino Party Jollof mix — the party-style tomato mix.',
-      imageUrl: _imgTomato,
+      imageUrl: _imgPartyJollof,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Piece', price: 320, stock: 500),
@@ -435,7 +498,7 @@ class SampleCatalog {
       name: 'Magnate Tomato',
       categoryId: 'seasonings',
       description: 'Magnate tomato paste — value for money.',
-      imageUrl: _imgTomato,
+      imageUrl: _imgMagnate,
       units: const [
         ProductUnit(unitName: 'Piece', price: 200, stock: 600),
         ProductUnit(unitName: 'Pack', price: 2200, stock: 80),
@@ -447,7 +510,7 @@ class SampleCatalog {
       name: 'Hot Pepper',
       categoryId: 'seasonings',
       description: 'Dry ground hot pepper.',
-      imageUrl: _imgTomato,
+      imageUrl: _imgHotPepper,
       units: const [
         ProductUnit(unitName: 'Piece', price: 300, stock: 400),
         ProductUnit(unitName: 'Pack', price: 3200, stock: 60),
@@ -456,10 +519,10 @@ class SampleCatalog {
     ),
     Product(
       id: 'maggi_know',
-      name: 'Maggi Know',
+      name: 'Maggi Seasoning',
       categoryId: 'seasonings',
-      description: 'Maggi Know seasoning cubes.',
-      imageUrl: _imgTomato,
+      description: 'Maggi & Knorr seasoning cubes.',
+      imageUrl: _imgMaggi,
       units: const [
         ProductUnit(unitName: 'Piece', price: 100, stock: 800),
         ProductUnit(unitName: 'Pack', price: 1800, stock: 120),
@@ -475,7 +538,7 @@ class SampleCatalog {
       name: 'Emperor Oil 25L',
       categoryId: 'oil',
       description: 'Emperor vegetable oil — 25L bulk keg.',
-      imageUrl: _imgOil,
+      imageUrl: _imgEmperor,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Keg', price: 68000, stock: 15),
@@ -486,7 +549,7 @@ class SampleCatalog {
       name: 'King Oil (1000ml × 12)',
       categoryId: 'oil',
       description: 'King Oil — 1L bottles, sold singly or by carton of 12.',
-      imageUrl: _imgOil,
+      imageUrl: _imgKingOil,
       units: const [
         ProductUnit(unitName: 'Bottle', price: 3800, stock: 120),
         ProductUnit(unitName: 'Carton', price: 42000, stock: 20),
@@ -497,7 +560,7 @@ class SampleCatalog {
       name: 'Golden Penny Soya Oil',
       categoryId: 'oil',
       description: 'Golden Penny soya oil — light, clean taste.',
-      imageUrl: _imgOil,
+      imageUrl: _imgGpSoya,
       units: const [
         ProductUnit(unitName: 'Bottle', price: 4200, stock: 100),
         ProductUnit(unitName: 'Keg', price: 52000, stock: 20),
@@ -513,7 +576,7 @@ class SampleCatalog {
       name: 'Nittol Sachet Detergent',
       categoryId: 'cleaning',
       description: 'Nittol sachet detergent — strong cleaning power.',
-      imageUrl: _imgSoap,
+      imageUrl: _imgNittol,
       units: const [
         ProductUnit(unitName: 'Piece', price: 80, stock: 1000),
         ProductUnit(unitName: 'Pack', price: 1500, stock: 150),
@@ -525,7 +588,7 @@ class SampleCatalog {
       name: 'WAW Detergent',
       categoryId: 'cleaning',
       description: 'WAW detergent — economy pack.',
-      imageUrl: _imgSoap,
+      imageUrl: _imgWaw,
       units: const [
         ProductUnit(unitName: 'Piece', price: 350, stock: 400),
         ProductUnit(unitName: 'Pack', price: 3800, stock: 60),
@@ -536,8 +599,8 @@ class SampleCatalog {
       id: 'dettol_cool',
       name: 'Dettol Cool',
       categoryId: 'cleaning',
-      description: 'Dettol Cool antiseptic liquid.',
-      imageUrl: _imgSoap,
+      description: 'Dettol Cool antiseptic soap.',
+      imageUrl: _imgDettolCool,
       units: const [
         ProductUnit(unitName: 'Piece', price: 1800, stock: 120),
         ProductUnit(unitName: 'Pack', price: 6500, stock: 40),
@@ -548,8 +611,8 @@ class SampleCatalog {
       id: 'dettol_original',
       name: 'Dettol Original',
       categoryId: 'cleaning',
-      description: 'Dettol Original antiseptic liquid.',
-      imageUrl: _imgSoap,
+      description: 'Dettol Original antiseptic soap.',
+      imageUrl: _imgDettolOriginal,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Piece', price: 1700, stock: 120),
@@ -559,10 +622,10 @@ class SampleCatalog {
     ),
     Product(
       id: 'septo',
-      name: 'Septo Disinfectant',
+      name: 'Septo Antiseptic Soap',
       categoryId: 'cleaning',
-      description: 'Septo disinfectant — keeps your home germ free.',
-      imageUrl: _imgSoap,
+      description: 'Septo medicated & antiseptic soap with Vitamin E.',
+      imageUrl: _imgSepto,
       units: const [
         ProductUnit(unitName: 'Piece', price: 900, stock: 200),
         ProductUnit(unitName: 'Pack', price: 4500, stock: 45),
@@ -579,7 +642,7 @@ class SampleCatalog {
       name: 'Colgate Herbal',
       categoryId: 'personal_care',
       description: 'Colgate Herbal toothpaste — natural ingredients.',
-      imageUrl: _imgCare,
+      imageUrl: _imgColgate,
       units: const [
         ProductUnit(unitName: 'Tube', price: 950, stock: 300),
         ProductUnit(unitName: 'Pack', price: 5200, stock: 60),
@@ -590,8 +653,8 @@ class SampleCatalog {
       id: 'pepsodent_123',
       name: 'Pepsodent 123',
       categoryId: 'personal_care',
-      description: 'Pepsodent 123 toothpaste.',
-      imageUrl: _imgCare,
+      description: 'Pepsodent 123 Triple Protection toothpaste.',
+      imageUrl: _imgPepsodent123,
       units: const [
         ProductUnit(unitName: 'Tube', price: 1100, stock: 280),
         ProductUnit(unitName: 'Pack', price: 6000, stock: 55),
@@ -600,10 +663,10 @@ class SampleCatalog {
     ),
     Product(
       id: 'pepsodent_ord',
-      name: 'Pepsodent Ordinary',
+      name: 'Pepsodent Cavity Fighter',
       categoryId: 'personal_care',
-      description: 'Pepsodent standard toothpaste.',
-      imageUrl: _imgCare,
+      description: 'Pepsodent Cavity Fighter everyday toothpaste.',
+      imageUrl: _imgPepsodentOrd,
       units: const [
         ProductUnit(unitName: 'Tube', price: 900, stock: 300),
         ProductUnit(unitName: 'Pack', price: 5000, stock: 60),
@@ -612,10 +675,10 @@ class SampleCatalog {
     ),
     Product(
       id: 'oralb_large',
-      name: 'Oral B Large',
+      name: 'Oral B Toothbrush',
       categoryId: 'personal_care',
       description: 'Oral B toothbrush — large.',
-      imageUrl: _imgCare,
+      imageUrl: _imgOralB,
       units: const [
         ProductUnit(unitName: 'Piece', price: 700, stock: 400),
         ProductUnit(unitName: 'Pack', price: 4000, stock: 70),
@@ -626,8 +689,8 @@ class SampleCatalog {
       id: 'eva_soap',
       name: 'Eva Soap',
       categoryId: 'personal_care',
-      description: 'Eva beauty soap.',
-      imageUrl: _imgCare,
+      description: 'Eva Romantic beauty soap with olive oil & shea butter.',
+      imageUrl: _imgEva,
       featured: true,
       units: const [
         ProductUnit(unitName: 'Bar', price: 650, stock: 500),
@@ -640,7 +703,7 @@ class SampleCatalog {
       name: 'Close Up (Big)',
       categoryId: 'personal_care',
       description: 'Close Up toothpaste — big tube.',
-      imageUrl: _imgCare,
+      imageUrl: _imgCloseUp,
       units: const [
         ProductUnit(unitName: 'Tube', price: 1200, stock: 250),
         ProductUnit(unitName: 'Pack', price: 6500, stock: 50),
@@ -652,7 +715,7 @@ class SampleCatalog {
       name: 'Close Up (Small)',
       categoryId: 'personal_care',
       description: 'Close Up toothpaste — small tube.',
-      imageUrl: _imgCare,
+      imageUrl: _imgCloseUp,
       units: const [
         ProductUnit(unitName: 'Tube', price: 700, stock: 300),
         ProductUnit(unitName: 'Pack', price: 3800, stock: 60),
@@ -695,7 +758,7 @@ class SampleCatalog {
       categoryId: 'grains',
       description:
           'Clean, well-dried millet grains — great for pap, kunu and porridge.',
-      imageUrl: _img,
+      imageUrl: _imgMillet,
       units: _congoUnits(congo: 1800, halfCongo: 950, paint: 3800, halfPaint: 2000, bag: 55000),
     ),
   ];

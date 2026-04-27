@@ -39,6 +39,17 @@ dependencies:
   shared_preferences: ^2.3.3
   equatable: ^2.0.5
 
+  # Biometric authentication
+  local_auth: ^2.3.0
+  local_auth_android: ^1.0.43
+  local_auth_darwin: ^1.4.2
+
+  # Local notifications (used to surface FCM messages in foreground)
+  flutter_local_notifications: ^17.2.3
+
+  # Launch phone / email / WhatsApp links from contact screens
+  url_launcher: ^6.3.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -48,4 +59,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/products/
+    - assets/images/splash/
     - assets/icons/

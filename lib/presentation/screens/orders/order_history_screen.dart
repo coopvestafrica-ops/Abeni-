@@ -92,6 +92,7 @@ class _OrderCard extends StatelessWidget {
       case OrderStatus.pending:
         return AppColors.statusPending;
       case OrderStatus.processing:
+      case OrderStatus.outForDelivery:
         return AppColors.statusProcessing;
       case OrderStatus.delivered:
         return AppColors.statusDelivered;
