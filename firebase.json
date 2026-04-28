@@ -1,1 +1,27 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"abeni-mart","appId":"1:59586757498:android:6541d16b6909d7e5fb8cc3","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"abeni-mart","configurations":{"android":"1:59586757498:android:6541d16b6909d7e5fb8cc3","ios":"1:59586757498:ios:6d3090e088faf7a8fb8cc3","web":"1:59586757498:web:307f36d73b5ae938fb8cc3"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "abeni-mart",
+          "appId": "1:59586757498:android:6541d16b6909d7e5fb8cc3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "abeni-mart",
+          "configurations": {
+            "android": "1:59586757498:android:6541d16b6909d7e5fb8cc3",
+            "ios": "1:59586757498:ios:6d3090e088faf7a8fb8cc3",
+            "web": "1:59586757498:web:307f36d73b5ae938fb8cc3"
+          }
+        }
+      }
+    }
+  }
+}

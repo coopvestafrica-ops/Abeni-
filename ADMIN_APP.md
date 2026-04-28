@@ -80,41 +80,15 @@ deploy a Cloud Function on each of these collections:
 Cloud Function snippets are not committed to this repo; ask Devin to add
 them once you've enabled Cloud Functions on the Firebase project.
 
-## Firestore security rules (recommended)
+## Firestore security rules
 
+The production rules live in `firestore.rules` at the repo root. Deploy them
+with:
+
+```bash
+firebase deploy --only firestore:rules --project=abeni-mart
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{db}/documents {
-    function isAuthed() { return request.auth != null; }
-    function isAdmin() {
-      return isAuthed() &&
-        get(/databases/$(db)/documents/users/$(request.auth.uid)).data.role
-          in ['admin','staff'];
-    }
-    match /users/{uid} {
-      allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
-      allow write: if isAuthed() && (request.auth.uid == uid || isAdmin());
-      // Only admins can write the `role` field — clients never can.
-      allow update: if isAdmin();
-    }
-    match /orders/{id} {
-      allow read: if isAuthed() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthed() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
-    }
-    match /products/{id} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    match /broadcasts/{id} {
-      allow read: if isAuthed();
-      allow write: if isAdmin();
-    }
-    match /customer_messages/{id} {
-      allow read: if isAuthed() && resource.data.userId == request.auth.uid;
-      allow write: if isAdmin();
-    }
-  }
-}
-```
+
+The rules use an `isAdmin()` helper that reads the caller's `users` document
+and checks `role in ['admin', 'staff']`. Without these rules deployed,
+**every admin screen will show `permission-denied` errors**.

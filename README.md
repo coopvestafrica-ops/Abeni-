@@ -146,30 +146,21 @@ Open the app, sign in, go to **Profile → (future step)**, or temporarily call
 `ProductRepository().seedSampleProducts()` once from your code. This uploads
 the 12 starter products into the `products` collection.
 
-#### d. Firestore security rules (starter)
+#### d. Deploy Firestore security rules
 
-A minimal set of rules — tighten before production:
+The repo includes a `firestore.rules` file with production-ready rules that
+support both the **customer app** and the **admin app**. Deploy them with:
 
-```firestore
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{db}/documents {
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if request.auth != null; // replace with admin check
-    }
-    match /orders/{orderId} {
-      allow read, write: if request.auth != null &&
-        request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.userId;
-    }
-  }
-}
+```bash
+npm install -g firebase-tools   # if you haven't already
+firebase login
+firebase deploy --only firestore:rules --project=abeni-mart
 ```
+
+> **Important:** The admin app requires these rules to be deployed. Without
+> them Firestore uses the default deny-all policy and every screen will show
+> `[cloud_firestore/permission-denied]` errors. See `firestore.rules` for the
+> full rule set and `ADMIN_APP.md` for details on the admin role system.
 
 ---
 
