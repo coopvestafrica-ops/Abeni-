@@ -121,6 +121,10 @@ class NotificationService {
       if (token == null) return;
       await _persistToken(userId, token);
       await FirebaseMessaging.instance.subscribeToTopic('user_$userId');
+      // Subscribe every signed-in customer device to the store-wide
+      // broadcast topic so the broadcast Cloud Function can reach
+      // everyone in one publish.
+      await FirebaseMessaging.instance.subscribeToTopic('customers');
       FirebaseMessaging.instance.onTokenRefresh.listen((t) {
         _persistToken(userId, t);
       });
@@ -133,6 +137,7 @@ class NotificationService {
     if (!FirebaseService.isInitialized) return;
     try {
       await FirebaseMessaging.instance.unsubscribeFromTopic('user_$userId');
+      await FirebaseMessaging.instance.unsubscribeFromTopic('customers');
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
       await FirebaseFirestore.instance

@@ -1,0 +1,20 @@
+{
+  "name": "abeni-mart-functions",
+  "description": "Cloud Functions for Abeni Mart push notifications",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.10.0"
+  },
+  "scripts": {
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  }
+}
