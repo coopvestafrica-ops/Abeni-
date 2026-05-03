@@ -1,0 +1,71 @@
+name: Build Admin APK
+
+on:
+  push:
+    branches:
+      - "devin/1776624013-abeni-mart"
+      - "main"
+      - "master"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Admin APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Admin APK (release)
+        run: |
+          flutter build apk \
+            --release \
+            --flavor admin \
+            -t lib/main_admin.dart \
+            --no-tree-shake-icons
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp build/app/outputs/flutter-apk/app-admin-release.apk \
+             output/AbeniAdmin-v${{ github.run_number }}.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AbeniAdmin-v${{ github.run_number }}
+          path: output/AbeniAdmin-v${{ github.run_number }}.apk
+          retention-days: 30
+
+      - name: Print download instructions
+        run: |
+          echo ""
+          echo "========================================="
+          echo "  APK READY TO DOWNLOAD"
+          echo "========================================="
+          echo ""
+          echo "1. Go to: https://github.com/coopvestafrica-ops/Abeni-/actions"
+          echo "2. Click this workflow run"
+          echo "3. Scroll to 'Artifacts' at the bottom"
+          echo "4. Download:  AbeniAdmin-v${{ github.run_number }}.apk"
+          echo ""
+          echo "Transfer the APK to your Android phone and install it."
+          echo "Make sure 'Install from unknown sources' is enabled."
+          echo "========================================="
