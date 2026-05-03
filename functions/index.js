@@ -1,28 +1,28 @@
 /**
- * Abeni Mart — Cloud Functions for FCM push notifications.
+ * Abeni Mart — Cloud Functions for FCM push notifications + Auth custom claims.
  *
  * Triggers:
  *   1. customer_messages/{id}  → push to that single customer's devices.
- *      Used for order-status updates, payment confirmations, and direct
- *      admin → customer messages.
- *
- *   2. broadcasts/{id}         → push to the "customers" topic so every
- *      customer device receives the announcement.
- *
- *   3. (helper) onUserCreate   → seed new users with role=customer.
+ *   2. broadcasts/{id}         → push to the "customers" topic.
+ *   3. users/{uid}             → set Firebase Auth custom claims when the
+ *                                user's `role` field changes (admin/staff).
+ *                                This avoids a Firestore read in every
+ *                                security rule evaluation.
  *
  * Deploy:
  *     cd functions && npm install
  *     firebase deploy --only functions
  */
 
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { logger } = require("firebase-functions");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
-setGlobalOptions({ region: "us-central1", maxInstances: 10 });
+
+// Match the Firestore region recommended in the README (europe-west1).
+setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 
 const db = admin.firestore();
 const fcm = admin.messaging();
@@ -67,9 +67,7 @@ exports.onCustomerMessageCreated = onDocumentCreated(
         },
       },
       apns: {
-        payload: {
-          aps: { sound: "default" },
-        },
+        payload: { aps: { sound: "default" } },
       },
     };
 
@@ -78,8 +76,7 @@ exports.onCustomerMessageCreated = onDocumentCreated(
 );
 
 // --------------------------------------------------------------------------- //
-// 2. Broadcast push: triggered by writes to /broadcasts.                       //
-//    Sent to the "customers" topic so all customer devices receive it.         //
+// 2. Broadcast push: triggered by writes to /broadcasts.                      //
 // --------------------------------------------------------------------------- //
 exports.onBroadcastCreated = onDocumentCreated(
   "broadcasts/{broadcastId}",
@@ -118,6 +115,43 @@ exports.onBroadcastCreated = onDocumentCreated(
 );
 
 // --------------------------------------------------------------------------- //
+// 3. Sync user role → Firebase Auth custom claims.                            //
+//    When an admin sets/changes users/{uid}.role in Firestore, this function  //
+//    mirrors it as a custom claim so Firestore rules can check                //
+//    request.auth.token.role without an extra document read per request.       //
+// --------------------------------------------------------------------------- //
+exports.onUserRoleChanged = onDocumentWritten(
+  "users/{uid}",
+  async (event) => {
+    const uid = event.params.uid;
+    const afterData = event.data?.after?.data();
+    const newRole = afterData?.role ?? null;
+
+    try {
+      // Read existing claims so we don't overwrite unrelated ones.
+      const userRecord = await admin.auth().getUser(uid);
+      const existingClaims = userRecord.customClaims || {};
+
+      if (existingClaims.role === newRole) return; // no change
+
+      await admin.auth().setCustomUserClaims(uid, {
+        ...existingClaims,
+        role: newRole,
+      });
+
+      logger.info(`Custom claim role=${newRole} set for uid=${uid}`);
+
+      // Write a flag so the client knows to refresh its ID token.
+      await db.collection("users").doc(uid).update({
+        claimsRefreshedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.error(`Failed to set custom claims for uid=${uid}`, e);
+    }
+  }
+);
+
+// --------------------------------------------------------------------------- //
 // Helpers                                                                      //
 // --------------------------------------------------------------------------- //
 
@@ -133,9 +167,10 @@ async function sendToTokens(userId, tokens, payload) {
   const message = { ...payload, tokens };
   try {
     const res = await fcm.sendEachForMulticast(message);
-    logger.info(`FCM → user=${userId} success=${res.successCount} failure=${res.failureCount}`);
+    logger.info(
+      `FCM → user=${userId} success=${res.successCount} failure=${res.failureCount}`
+    );
 
-    // Clean up dead tokens so we don't keep retrying them.
     const deadTokens = [];
     res.responses.forEach((r, i) => {
       if (!r.success) {
@@ -152,10 +187,15 @@ async function sendToTokens(userId, tokens, payload) {
     });
     if (deadTokens.length) {
       const batch = db.batch();
-      const tokRef = db.collection("users").doc(userId).collection("fcm_tokens");
+      const tokRef = db
+        .collection("users")
+        .doc(userId)
+        .collection("fcm_tokens");
       deadTokens.forEach((t) => batch.delete(tokRef.doc(t)));
       await batch.commit();
-      logger.info(`Pruned ${deadTokens.length} dead token(s) for user ${userId}`);
+      logger.info(
+        `Pruned ${deadTokens.length} dead token(s) for user ${userId}`
+      );
     }
   } catch (e) {
     logger.error(`FCM multicast failed for user ${userId}`, e);
@@ -163,7 +203,6 @@ async function sendToTokens(userId, tokens, payload) {
 }
 
 function stringifyData(obj) {
-  // FCM data values must all be strings.
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v === null || v === undefined) continue;

@@ -24,8 +24,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _phone = TextEditingController();
   bool _loading = false;
 
-  static const double _deliveryFee = 1500;
-
   @override
   void initState() {
     super.initState();
@@ -41,7 +39,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
-  Future<void> _placeOrder() async {
+  Future<void> _placeOrder(double deliveryFee) async {
     final user = ref.read(currentUserProvider);
     final cart = ref.read(cartProvider);
     if (user == null || cart.items.isEmpty) return;
@@ -67,10 +65,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             paymentMethod: _payment,
             deliveryAddress: _address.text.trim(),
             phone: _phone.text.trim(),
-            deliveryFee: _deliveryFee,
+            deliveryFee: deliveryFee,
           );
       ref.read(cartProvider.notifier).clear();
-      ref.invalidate(myOrdersProvider);
       if (!mounted) return;
       context.pushReplacement('/order-confirmation', extra: order);
     } catch (e) {
@@ -86,9 +83,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final deliveryFeeAsync = ref.watch(deliveryFeeProvider);
+    final deliveryFee = deliveryFeeAsync.value ?? 1500.0;
     final subtotal = cart.subtotal;
-    final total = subtotal +
-        (_fulfillment == FulfillmentType.delivery ? _deliveryFee : 0);
+    final total =
+        subtotal + (_fulfillment == FulfillmentType.delivery ? deliveryFee : 0);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -100,7 +99,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             icon: Icons.delivery_dining_rounded,
             title: 'Delivery',
             subtitle: 'We deliver to your address',
-            trailing: formatNaira(_deliveryFee),
+            trailing: deliveryFeeAsync.when(
+              data: (fee) => formatNaira(fee),
+              loading: () => '…',
+              error: (_, __) => formatNaira(1500),
+            ),
             selected: _fulfillment == FulfillmentType.delivery,
             onTap: () =>
                 setState(() => _fulfillment = FulfillmentType.delivery),
@@ -174,15 +177,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 _summaryRow(
                   'Delivery',
                   _fulfillment == FulfillmentType.delivery
-                      ? formatNaira(_deliveryFee)
+                      ? formatNaira(deliveryFee)
                       : 'Free',
                 ),
                 const Divider(height: 20),
-                _summaryRow(
-                  'Total',
-                  formatNaira(total),
-                  emphasize: true,
-                ),
+                _summaryRow('Total', formatNaira(total), emphasize: true),
               ],
             ),
           ),
@@ -190,7 +189,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           PrimaryButton(
             label: 'Place Order',
             icon: Icons.check_circle_rounded,
-            onPressed: cart.items.isEmpty ? null : _placeOrder,
+            onPressed:
+                cart.items.isEmpty ? null : () => _placeOrder(deliveryFee),
             loading: _loading,
           ),
         ],
@@ -248,9 +248,7 @@ class _BankTransferDetails extends StatelessWidget {
           _row('Account Name', account.accountName),
           Row(
             children: [
-              Expanded(
-                child: _row('Account Number', account.accountNumber),
-              ),
+              Expanded(child: _row('Account Number', account.accountNumber)),
               IconButton(
                 tooltip: 'Copy account number',
                 icon: const Icon(Icons.copy_rounded,
@@ -273,10 +271,7 @@ class _BankTransferDetails extends StatelessWidget {
           const Text(
             'After transfer, please keep your receipt. Your order will be '
             'confirmed once we receive payment.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -294,18 +289,13 @@ class _BankTransferDetails extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 13,
-              ),
+                  color: AppColors.textSecondary, fontSize: 13),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
             ),
           ),
         ],
@@ -355,9 +345,7 @@ class _OptionTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withOpacity(0.08)
-              : Colors.white,
+          color: selected ? AppColors.primary.withOpacity(0.08) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? AppColors.primary : AppColors.divider,
@@ -380,17 +368,13 @@ class _OptionTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
+                        color: AppColors.textSecondary, fontSize: 12),
                   ),
                 ],
               ),
@@ -399,9 +383,7 @@ class _OptionTile extends StatelessWidget {
               Text(
                 trailing!,
                 style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                ),
+                    fontWeight: FontWeight.w800, color: AppColors.primary),
               ),
             const SizedBox(width: 6),
             Icon(

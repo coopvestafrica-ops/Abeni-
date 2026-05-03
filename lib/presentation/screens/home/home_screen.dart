@@ -7,6 +7,7 @@ import '../../../data/models/product.dart';
 import '../../providers/providers.dart';
 import '../../widgets/category_card.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/shimmer_loading.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -25,10 +26,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  /// Map of `categoryId -> lowercased category name` so search can match
-  /// what the user *sees* (e.g. typing "milk" finds everything in the
-  /// "Milk & Beverages" category even if the word "milk" isn't in the
-  /// product name).
   static final Map<String, String> _categoryNames = {
     for (final c in AppConstants.categories) c.id: c.name.toLowerCase(),
   };
@@ -92,11 +89,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
+            // Featured carousel
             SliverToBoxAdapter(
               child: productsAsync.when(
                 data: (products) {
-                  // Hide the "Featured" carousel while the user is searching
-                  // so the result list isn't competing with it.
                   if (_search.isNotEmpty) return const SizedBox.shrink();
                   final featured =
                       products.where((p) => p.featured).toList();
@@ -111,7 +107,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       SizedBox(
                         height: 240,
                         child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
                           scrollDirection: Axis.horizontal,
                           itemCount: featured.length,
                           separatorBuilder: (_, __) =>
@@ -137,13 +134,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
             ),
+            // Product grid with shimmer
             productsAsync.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
+              loading: () => const ProductGridShimmer(count: 6),
               error: (e, _) => SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -151,7 +144,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               data: (products) {
-                final filtered = products.where(_matchesSearch).toList();
+                final filtered =
+                    products.where(_matchesSearch).toList();
                 return _ProductGrid(products: filtered);
               },
             ),
@@ -195,20 +189,18 @@ class _Header extends StatelessWidget {
                     Text(
                       'Hi, $greeting 👋',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     const Text(
                       'What are we cooking today?',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2),
                     ),
                   ],
                 ),
@@ -219,10 +211,8 @@ class _Header extends StatelessWidget {
                   color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.notifications_none_rounded,
+                    color: Colors.white),
               ),
             ],
           ),
@@ -237,10 +227,9 @@ class _Header extends StatelessWidget {
                   child: Text(
                     'Deliver to: $address',
                     style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -258,11 +247,10 @@ class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
-  const _SearchBar({
-    required this.controller,
-    required this.onChanged,
-    required this.onClear,
-  });
+  const _SearchBar(
+      {required this.controller,
+      required this.onChanged,
+      required this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -301,10 +289,7 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         ),
       ],
     );

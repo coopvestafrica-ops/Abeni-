@@ -9,24 +9,15 @@ import '../../data/services/firebase_service.dart';
 
 /// Initialises Firebase Cloud Messaging for order status updates.
 ///
-/// What this handles:
-/// - Background message handler registration (top-level function required).
-/// - Notification permission request.
-/// - A Local Notifications channel so FCM messages arriving while the app
-///   is in the foreground are still surfaced to the user.
-/// - Storing the device's FCM token on the Firestore user document so the
-///   backend can target individual customers with order-status updates
-///   ("processing", "out-for-delivery", "delivered").
-/// - Topic subscription per user so the backend can publish to a topic
-///   instead of maintaining a token list if it prefers.
+/// Tap-to-navigate:
+///   - Cold-start tap   → handled via getInitialMessage() in main.dart
+///   - Background tap   → handled via onMessageOpenedApp stream
+///   - Foreground push  → shown via local notifications; tap navigates too
 ///
-/// To send a notification from the server, publish a message with a `data`
-/// payload containing either `orderId` + `status`, or rely on FCM's own
-/// `notification.title` / `notification.body` fields.
+/// Navigation events are emitted on [onNotificationTap] — subscribe in
+/// main.dart and route with GoRouter.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Keep background work minimal — the system already renders the
-  // notification for us when the `notification` field is present.
   debugPrint('[FCM bg] ${message.messageId} ${message.data}');
 }
 
@@ -46,6 +37,12 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
 
+  /// Stream of route paths emitted when the user taps a notification.
+  /// Consumers should navigate to this path and then ignore subsequent nulls.
+  final StreamController<String> _tapRouteController =
+      StreamController<String>.broadcast();
+  Stream<String> get onNotificationTap => _tapRouteController.stream;
+
   bool _inited = false;
 
   /// Initialise FCM + local notifications. Safe to call multiple times.
@@ -56,14 +53,12 @@ class NotificationService {
 
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Permission — iOS requires an explicit ask; Android 13+ too.
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
-    // Make foreground notifications actually render on iOS.
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
       alert: true,
@@ -71,7 +66,6 @@ class NotificationService {
       sound: true,
     );
 
-    // Local notifications channel (Android) so foreground messages surface.
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -80,19 +74,41 @@ class NotificationService {
     );
     await _local.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
+      onDidReceiveNotificationResponse: (details) {
+        // User tapped a local notification while app was in foreground.
+        final route = _routeFromPayload(details.payload);
+        if (route != null) _tapRouteController.add(route);
+      },
     );
     await _local
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_orderChannel);
 
-    // Show foreground pushes using the local plugin.
+    // Foreground FCM push → show as local notification so user can tap it.
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
+
+    // Background / quit tap — app was opened by tapping a notification.
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      final route = _routeFromMessage(message);
+      if (route != null) _tapRouteController.add(route);
+    });
+  }
+
+  /// Call once after the router is ready to handle cold-start taps.
+  Future<void> handleInitialMessage() async {
+    if (!FirebaseService.isInitialized) return;
+    final message = await FirebaseMessaging.instance.getInitialMessage();
+    if (message != null) {
+      final route = _routeFromMessage(message);
+      if (route != null) _tapRouteController.add(route);
+    }
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {
     final notif = message.notification;
     if (notif == null) return;
+    final payload = _routeFromMessage(message);
     await _local.show(
       message.hashCode,
       notif.title ?? 'Abeni Mart',
@@ -107,13 +123,27 @@ class NotificationService {
         ),
         iOS: const DarwinNotificationDetails(),
       ),
-      payload: message.data['orderId']?.toString(),
+      payload: payload,
     );
   }
 
-  /// Registers the device's FCM token against the Firestore user document and
-  /// subscribes the user to their personal topic so the backend can target
-  /// this customer. Called after login.
+  /// Derives a GoRouter route path from an FCM message's data payload.
+  /// Returns '/orders' when an orderId is present, null otherwise.
+  String? _routeFromMessage(RemoteMessage message) {
+    final orderId = message.data['orderId'];
+    if (orderId != null && (orderId as String).isNotEmpty) return '/orders';
+    final type = message.data['type'] as String?;
+    if (type == 'broadcast') return '/home';
+    return null;
+  }
+
+  /// Same derivation but from a local-notification payload string.
+  String? _routeFromPayload(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    return payload;
+  }
+
+  /// Registers the device's FCM token against the Firestore user document.
   Future<void> registerForUser(String userId) async {
     if (!FirebaseService.isInitialized) return;
     try {
@@ -121,9 +151,6 @@ class NotificationService {
       if (token == null) return;
       await _persistToken(userId, token);
       await FirebaseMessaging.instance.subscribeToTopic('user_$userId');
-      // Subscribe every signed-in customer device to the store-wide
-      // broadcast topic so the broadcast Cloud Function can reach
-      // everyone in one publish.
       await FirebaseMessaging.instance.subscribeToTopic('customers');
       FirebaseMessaging.instance.onTokenRefresh.listen((t) {
         _persistToken(userId, t);

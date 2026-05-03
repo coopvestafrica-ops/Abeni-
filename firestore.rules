@@ -7,39 +7,59 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Uses Firebase Auth Custom Claims (set by the onUserRoleChanged Cloud
+    // Function) so no extra Firestore read is needed on every request.
+    // Fall back to checking the Firestore role field only when the claim
+    // hasn't been set yet (e.g. legacy accounts before the function deployed).
     function isAdmin() {
-      return isAuthed() &&
-        get(/databases/$(db)/documents/users/$(request.auth.uid)).data.role
-          in ['admin', 'staff'];
+      return isAuthed() && (
+        request.auth.token.get('role', '') in ['admin', 'staff']
+      );
+    }
+
+    // ── store_config ──────────────────────────────────────────────────
+    // Delivery fee and other store-wide settings. Readable by anyone;
+    // writable only by admin/staff.
+    match /store_config/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ── users ─────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Any authenticated user can read their own profile.
-      // Admin/staff can read any profile (customer list, staff screen).
       allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
-
-      // Users can create/update their own profile.
-      // Admin/staff can update any profile (e.g. change role).
       allow create: if isAuthed() && request.auth.uid == uid;
       allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
       allow delete: if isAdmin();
+
+      // FCM token sub-collection — only the owning user or admins.
+      match /fcm_tokens/{token} {
+        allow read, write: if isAuthed() &&
+          (request.auth.uid == uid || isAdmin());
+      }
     }
 
     // ── orders ────────────────────────────────────────────────────────
     match /orders/{orderId} {
-      // Customers see only their own orders; admin/staff see all.
       allow read: if isAuthed() &&
         (resource.data.userId == request.auth.uid || isAdmin());
 
-      // Only the owning customer can create an order.
       allow create: if isAuthed() &&
         request.resource.data.userId == request.auth.uid;
 
-      // Only admin/staff can change status, add notes, etc.
-      allow update, delete: if isAdmin();
+      // Customers may only cancel their own pending orders.
+      allow update: if isAdmin() || (
+        isAuthed() &&
+        resource.data.userId == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'cancelled' &&
+        // Prevent altering any other field during a customer cancel.
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status'])
+      );
 
-      // Internal notes sub-collection (admin-only).
+      allow delete: if isAdmin();
+
       match /notes/{noteId} {
         allow read, write: if isAdmin();
       }
@@ -47,29 +67,20 @@ service cloud.firestore {
 
     // ── products ──────────────────────────────────────────────────────
     match /products/{productId} {
-      // Anyone can browse products (no auth needed).
       allow read: if true;
-
-      // Only admin/staff can create, edit or delete products.
       allow write: if isAdmin();
     }
 
     // ── broadcasts ────────────────────────────────────────────────────
     match /broadcasts/{broadcastId} {
-      // Any authenticated user can read broadcasts.
       allow read: if isAuthed();
-
-      // Only admin/staff can send broadcasts.
       allow write: if isAdmin();
     }
 
     // ── customer_messages ─────────────────────────────────────────────
     match /customer_messages/{msgId} {
-      // Customers can read their own messages.
       allow read: if isAuthed() &&
         resource.data.userId == request.auth.uid;
-
-      // Admin/staff can read all messages and create new ones.
       allow read, write: if isAdmin();
     }
   }

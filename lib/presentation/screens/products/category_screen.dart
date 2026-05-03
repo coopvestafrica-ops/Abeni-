@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 import '../../widgets/product_card.dart';
+import '../../widgets/shimmer_loading.dart';
 
 class CategoryScreen extends ConsumerWidget {
   final String categoryId;
@@ -18,11 +19,19 @@ class CategoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(productsByCategoryProvider(categoryId));
     return Scaffold(
-      appBar: AppBar(
-        title: Text(categoryName),
-      ),
+      appBar: AppBar(title: Text(categoryName)),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => GridView.builder(
+          padding: const EdgeInsets.all(20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.72,
+          ),
+          itemCount: 6,
+          itemBuilder: (_, __) => const ProductCardShimmer(),
+        ),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (products) {
           if (products.isEmpty) {

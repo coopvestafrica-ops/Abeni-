@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/product.dart';
 import '../services/firebase_service.dart';
@@ -9,6 +10,9 @@ class ProductRepository {
 
   bool get _useFirebase => FirebaseService.isInitialized;
 
+  static const int _pageSize = 20;
+
+  /// One-shot fetch (kept for seeding).
   Future<List<Product>> fetchAll() async {
     if (_useFirebase) {
       try {
@@ -16,15 +20,12 @@ class ProductRepository {
             .collection('products')
             .get()
             .timeout(const Duration(seconds: 8));
-        if (snap.docs.isEmpty) {
-          return SampleCatalog.products;
-        }
+        if (snap.docs.isEmpty) return SampleCatalog.products;
         return snap.docs
             .map((d) => Product.fromMap(d.id, d.data()))
             .toList();
-      } catch (_) {
-        // Firestore may be offline, denied by security rules, or not yet
-        // seeded; fall back to the built-in catalog so the UI still works.
+      } catch (e) {
+        debugPrint('[ProductRepository] fetchAll error: $e');
         return SampleCatalog.products;
       }
     }
@@ -32,16 +33,66 @@ class ProductRepository {
     return SampleCatalog.products;
   }
 
+  /// Real-time stream of all products. Falls back to sample catalog.
+  Stream<List<Product>> watchProducts() {
+    if (!_useFirebase) {
+      return Stream.value(SampleCatalog.products);
+    }
+    return FirebaseFirestore.instance
+        .collection('products')
+        .snapshots()
+        .map((snap) {
+      if (snap.docs.isEmpty) return SampleCatalog.products;
+      return snap.docs
+          .map((d) => Product.fromMap(d.id, d.data()))
+          .toList();
+    }).handleError((Object e) {
+      debugPrint('[ProductRepository] watchProducts stream error: $e');
+      return SampleCatalog.products;
+    });
+  }
+
+  /// Cursor-based paginated fetch. Returns (products, lastDoc, hasMore).
+  Future<(List<Product>, DocumentSnapshot?, bool)> fetchPage({
+    DocumentSnapshot? cursor,
+  }) async {
+    if (!_useFirebase) {
+      return (SampleCatalog.products, null, false);
+    }
+    try {
+      Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+          .collection('products')
+          .orderBy('productName')
+          .limit(_pageSize);
+      if (cursor != null) {
+        query = query.startAfterDocument(cursor);
+      }
+      final snap = await query.get().timeout(const Duration(seconds: 8));
+      final products =
+          snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList();
+      final lastDoc = snap.docs.isNotEmpty ? snap.docs.last : null;
+      final hasMore = snap.docs.length >= _pageSize;
+      return (products, lastDoc, hasMore);
+    } catch (e) {
+      debugPrint('[ProductRepository] fetchPage error: $e');
+      return (SampleCatalog.products, null, false);
+    }
+  }
+
   /// Uploads the sample catalog to Firestore — useful for first-time setup.
-  /// No-op in demo mode.
   Future<int> seedSampleProducts() async {
     if (!_useFirebase) return 0;
-    final batch = FirebaseFirestore.instance.batch();
-    final col = FirebaseFirestore.instance.collection('products');
-    for (final p in SampleCatalog.products) {
-      batch.set(col.doc(p.id), p.toMap());
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final col = FirebaseFirestore.instance.collection('products');
+      for (final p in SampleCatalog.products) {
+        batch.set(col.doc(p.id), p.toMap());
+      }
+      await batch.commit();
+      return SampleCatalog.products.length;
+    } catch (e) {
+      debugPrint('[ProductRepository] seedSampleProducts error: $e');
+      return 0;
     }
-    await batch.commit();
-    return SampleCatalog.products.length;
   }
 }
