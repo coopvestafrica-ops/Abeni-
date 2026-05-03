@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -33,23 +35,47 @@ class ProductRepository {
     return SampleCatalog.products;
   }
 
-  /// Real-time stream of all products. Falls back to sample catalog.
+  /// Real-time stream of all products. Falls back to sample catalog on error.
+  ///
+  /// Uses a StreamController so Firestore errors (permission-denied, network)
+  /// are converted into data events (sample catalog) instead of terminating
+  /// the stream — which would leave the StreamProvider stuck in loading forever.
   Stream<List<Product>> watchProducts() {
     if (!_useFirebase) {
       return Stream.value(SampleCatalog.products);
     }
-    return FirebaseFirestore.instance
+
+    final controller = StreamController<List<Product>>();
+
+    final subscription = FirebaseFirestore.instance
         .collection('products')
         .snapshots()
-        .map((snap) {
-      if (snap.docs.isEmpty) return SampleCatalog.products;
-      return snap.docs
-          .map((d) => Product.fromMap(d.id, d.data()))
-          .toList();
-    }).handleError((Object e) {
-      debugPrint('[ProductRepository] watchProducts stream error: $e');
-      return SampleCatalog.products;
-    });
+        .listen(
+      (snap) {
+        try {
+          final products = snap.docs.isEmpty
+              ? SampleCatalog.products
+              : snap.docs
+                  .map((d) => Product.fromMap(d.id, d.data()))
+                  .toList();
+          controller.add(products);
+        } catch (e) {
+          debugPrint('[ProductRepository] watchProducts map error: $e');
+          controller.add(SampleCatalog.products);
+        }
+      },
+      onError: (Object e) {
+        // On permission-denied or network error, fall back to sample catalog
+        // so the home/category screens show something rather than spinning.
+        debugPrint('[ProductRepository] watchProducts stream error: $e');
+        controller.add(SampleCatalog.products);
+      },
+      onDone: () => controller.close(),
+      cancelOnError: false,
+    );
+
+    controller.onCancel = () => subscription.cancel();
+    return controller.stream;
   }
 
   /// Cursor-based paginated fetch. Returns (products, lastDoc, hasMore).

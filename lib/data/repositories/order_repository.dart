@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
@@ -64,28 +66,58 @@ class OrderRepository {
   }
 
   /// Real-time stream of orders for a specific user.
+  ///
+  /// Sorting is done in Dart (not via Firestore orderBy) so no composite
+  /// index is required — this prevents the "stuck loading" bug that occurs
+  /// when the index is missing and Firestore terminates the stream silently.
   Stream<List<AbeniOrder>> watchUserOrders(String userId) {
     if (!_useFirebase) {
       return Stream.value(
           _demoOrders.where((o) => o.userId == userId).toList());
     }
-    return FirebaseFirestore.instance
+
+    // Use a StreamController so errors can be converted to data events
+    // (empty list) instead of terminating the stream, which would leave
+    // the StreamProvider stuck in its loading state forever.
+    final controller = StreamController<List<AbeniOrder>>();
+
+    final subscription = FirebaseFirestore.instance
         .collection('orders')
         .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
+        // No .orderBy() here — avoids the composite-index requirement.
+        // We sort the result in Dart below.
         .snapshots()
-        .map((snap) {
-      final list =
-          snap.docs.map((d) => AbeniOrder.fromMap(d.id, d.data())).toList();
-      final local = _demoOrders.where((o) => o.userId == userId);
-      for (final o in local) {
-        if (!list.any((x) => x.id == o.id)) list.insert(0, o);
-      }
-      return list;
-    }).handleError((Object e) {
-      debugPrint('[OrderRepository] watchUserOrders stream error: $e');
-      return _demoOrders.where((o) => o.userId == userId).toList();
-    });
+        .listen(
+      (snap) {
+        try {
+          final list = snap.docs
+              .map((d) => AbeniOrder.fromMap(d.id, d.data()))
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+          // Merge any locally-placed orders that haven't synced yet.
+          final local = _demoOrders.where((o) => o.userId == userId);
+          for (final o in local) {
+            if (!list.any((x) => x.id == o.id)) list.insert(0, o);
+          }
+          controller.add(list);
+        } catch (e) {
+          debugPrint('[OrderRepository] watchUserOrders map error: $e');
+          controller.add([]);
+        }
+      },
+      onError: (Object e) {
+        // On permission-denied or network errors, emit an empty list so
+        // the UI shows "No orders" rather than spinning forever.
+        debugPrint('[OrderRepository] watchUserOrders stream error: $e');
+        controller.add([]);
+      },
+      onDone: () => controller.close(),
+      cancelOnError: false,
+    );
+
+    controller.onCancel = () => subscription.cancel();
+    return controller.stream;
   }
 
   /// One-shot fetch (kept for backward compatibility).
