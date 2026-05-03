@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
@@ -15,8 +16,11 @@ class OrderHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(myOrdersProvider);
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('My Orders'),
+        backgroundColor: AppColors.background,
+        elevation: 0,
         automaticallyImplyLeading: !embedded,
       ),
       body: async.when(
@@ -103,87 +107,116 @@ class _OrderCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Order #${order.id}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 15),
+    final isCancelled = order.status == OrderStatus.cancelled;
+
+    return GestureDetector(
+      onTap: () => context.push('/order-tracking/${order.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Order #${order.id}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
                 ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    order.status.label,
+                    style: TextStyle(
+                        color: _statusColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700),
+                  ),
                 ),
-                child: Text(
-                  order.status.label,
-                  style: TextStyle(
-                      color: _statusColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            formatDate(order.createdAt),
-            style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          for (final line in order.items.take(3))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                '• ${line.productName} — ${line.unitName} × ${line.quantity}',
-                style: const TextStyle(fontSize: 13),
-              ),
+              ],
             ),
-          if (order.items.length > 3)
+            const SizedBox(height: 4),
             Text(
-              '+${order.items.length - 3} more item(s)',
+              formatDate(order.createdAt),
               style: const TextStyle(
                   color: AppColors.textSecondary, fontSize: 12),
             ),
-          const Divider(height: 20),
-          Row(
-            children: [
-              Text(
-                order.fulfillmentType.label,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary),
+            const SizedBox(height: 10),
+            for (final line in order.items.take(3))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• ${line.productName} — ${line.unitName} × ${line.quantity}',
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
-              const Spacer(),
+            if (order.items.length > 3)
               Text(
-                formatNaira(order.total),
+                '+${order.items.length - 3} more item(s)',
                 style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: AppColors.primary),
+                    color: AppColors.textSecondary, fontSize: 12),
               ),
-            ],
-          ),
-          if (order.status == OrderStatus.pending) ...[
+            const Divider(height: 20),
+            Row(
+              children: [
+                Text(
+                  order.fulfillmentType.label,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary),
+                ),
+                const Spacer(),
+                Text(
+                  formatNaira(order.total),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: AppColors.primary),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
-            _CancelButton(orderId: order.id),
+            // ── action row ──────────────────────────────────
+            Row(
+              children: [
+                if (!isCancelled)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          context.push('/order-tracking/${order.id}'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      icon: const Icon(Icons.local_shipping_outlined,
+                          size: 16),
+                      label: const Text('Track Order',
+                          style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                if (order.status == OrderStatus.pending) ...[
+                  if (!isCancelled) const SizedBox(width: 10),
+                  Expanded(child: _CancelButton(orderId: order.id)),
+                ],
+              ],
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -244,26 +277,25 @@ class _CancelButtonState extends ConsumerState<_CancelButton> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _loading ? null : _cancel,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.error,
-          side: const BorderSide(color: AppColors.error),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        icon: _loading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: AppColors.error),
-              )
-            : const Icon(Icons.cancel_outlined, size: 18),
-        label: const Text('Cancel Order'),
+    return OutlinedButton.icon(
+      onPressed: _loading ? null : _cancel,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.error,
+        side: const BorderSide(color: AppColors.error),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(vertical: 10),
       ),
+      icon: _loading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.error),
+            )
+          : const Icon(Icons.cancel_outlined, size: 16),
+      label: const Text('Cancel',
+          style: TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }
