@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 import '../cart/cart_screen.dart';
+import '../notifications/notification_inbox_screen.dart';
 import '../orders/order_history_screen.dart';
 import '../profile/profile_screen.dart';
 import 'home_screen.dart';
@@ -22,12 +23,16 @@ class _MainShellState extends ConsumerState<MainShell> {
     HomeScreen(),
     CartScreen(embedded: true),
     OrderHistoryScreen(embedded: true),
+    NotificationInboxScreen(),
     ProfileScreen(embedded: true),
   ];
 
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
+    final unreadAsync = ref.watch(unreadNotifCountProvider);
+    final unreadCount = unreadAsync.value ?? 0;
+
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
@@ -48,6 +53,19 @@ class _MainShellState extends ConsumerState<MainShell> {
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long_rounded),
             label: 'Orders',
+          ),
+          BottomNavigationBarItem(
+            icon: _BadgedIcon(
+              icon: Icons.notifications_outlined,
+              count: unreadCount,
+              active: false,
+            ),
+            activeIcon: _BadgedIcon(
+              icon: Icons.notifications_rounded,
+              count: unreadCount,
+              active: true,
+            ),
+            label: 'Alerts',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline_rounded),
@@ -86,6 +104,46 @@ class _CartIcon extends StatelessWidget {
               constraints: const BoxConstraints(minWidth: 18),
               child: Text(
                 '$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _BadgedIcon extends StatelessWidget {
+  final IconData icon;
+  final int count;
+  final bool active;
+  const _BadgedIcon(
+      {required this.icon, required this.count, required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        if (count > 0)
+          Positioned(
+            top: -6,
+            right: -8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              constraints: const BoxConstraints(minWidth: 18),
+              child: Text(
+                count > 99 ? '99+' : '$count',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
