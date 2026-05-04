@@ -4,10 +4,9 @@
  * Triggers:
  *   1. customer_messages/{id}  → push to that single customer's devices.
  *   2. broadcasts/{id}         → push to the "customers" topic.
- *   3. users/{uid}             → set Firebase Auth custom claims when the
+ *   3. orders/{id}             → direct push when order status changes.
+ *   4. users/{uid}             → set Firebase Auth custom claims when the
  *                                user's `role` field changes (admin/staff).
- *                                This avoids a Firestore read in every
- *                                security rule evaluation.
  *
  * Deploy:
  *     cd functions && npm install
@@ -21,7 +20,6 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-// Match the Firestore region recommended in the README (europe-west1).
 setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 
 const db = admin.firestore();
@@ -64,10 +62,17 @@ exports.onCustomerMessageCreated = onDocumentCreated(
         notification: {
           channelId: "abeni_order_updates",
           sound: "default",
+          defaultSound: true,
+          vibrateTimingsMillis: [0, 250, 250, 250],
         },
       },
       apns: {
-        payload: { aps: { sound: "default" } },
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+          },
+        },
       },
     };
 
@@ -100,9 +105,10 @@ exports.onBroadcastCreated = onDocumentCreated(
         notification: {
           channelId: "abeni_order_updates",
           sound: "default",
+          defaultSound: true,
         },
       },
-      apns: { payload: { aps: { sound: "default" } } },
+      apns: { payload: { aps: { sound: "default", badge: 1 } } },
     };
 
     try {
@@ -115,10 +121,85 @@ exports.onBroadcastCreated = onDocumentCreated(
 );
 
 // --------------------------------------------------------------------------- //
-// 3. Sync user role → Firebase Auth custom claims.                            //
-//    When an admin sets/changes users/{uid}.role in Firestore, this function  //
-//    mirrors it as a custom claim so Firestore rules can check                //
-//    request.auth.token.role without an extra document read per request.       //
+// 3. Direct order status push: triggered when an order document is updated.   //
+//    This is a direct trigger so push fires even if the customer_messages     //
+//    approach is delayed or the function above is temporarily unavailable.    //
+// --------------------------------------------------------------------------- //
+exports.onOrderStatusChanged = onDocumentWritten(
+  "orders/{orderId}",
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+
+    if (!after) return; // document deleted
+    if (!before) return; // document created (handled when customer places order)
+
+    const oldStatus = before.status;
+    const newStatus = after.status;
+
+    // Only act on actual status changes.
+    if (!newStatus || oldStatus === newStatus) return;
+
+    const userId = after.userId;
+    if (!userId) return;
+
+    const orderId = event.params.orderId;
+    const note = after.lastNote || "";
+
+    const statusTitles = {
+      pending: "Order received",
+      processing: "Order is being prepared",
+      out_for_delivery: "Out for delivery 🚚",
+      delivered: "Order delivered ✅",
+      cancelled: "Order cancelled",
+    };
+
+    const statusBodies = {
+      pending: `Order #${orderId} is now pending.`,
+      processing: `We are preparing order #${orderId} for you.`,
+      out_for_delivery: `Order #${orderId} is on its way to you!`,
+      delivered: `Order #${orderId} has been delivered. Enjoy!`,
+      cancelled: `Order #${orderId} was cancelled.`,
+    };
+
+    const title = statusTitles[newStatus] || "Order update";
+    let body = statusBodies[newStatus] || `Your order status changed to ${newStatus}.`;
+    if (note) body += `\nNote: ${note}`;
+
+    const tokens = await loadUserTokens(userId);
+    if (tokens.length === 0) {
+      logger.info(`No FCM tokens for user ${userId} on order ${orderId} status change.`);
+      return;
+    }
+
+    const payload = {
+      notification: { title, body },
+      data: stringifyData({
+        type: "order_status",
+        orderId,
+        status: newStatus,
+      }),
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "abeni_order_updates",
+          sound: "default",
+          defaultSound: true,
+          vibrateTimingsMillis: [0, 250, 250, 250],
+        },
+      },
+      apns: {
+        payload: { aps: { sound: "default", badge: 1 } },
+      },
+    };
+
+    await sendToTokens(userId, tokens, payload);
+    logger.info(`Order status push sent: order=${orderId} ${oldStatus}→${newStatus}`);
+  }
+);
+
+// --------------------------------------------------------------------------- //
+// 4. Sync user role → Firebase Auth custom claims.                            //
 // --------------------------------------------------------------------------- //
 exports.onUserRoleChanged = onDocumentWritten(
   "users/{uid}",
@@ -128,11 +209,10 @@ exports.onUserRoleChanged = onDocumentWritten(
     const newRole = afterData?.role ?? null;
 
     try {
-      // Read existing claims so we don't overwrite unrelated ones.
       const userRecord = await admin.auth().getUser(uid);
       const existingClaims = userRecord.customClaims || {};
 
-      if (existingClaims.role === newRole) return; // no change
+      if (existingClaims.role === newRole) return;
 
       await admin.auth().setCustomUserClaims(uid, {
         ...existingClaims,
@@ -141,7 +221,6 @@ exports.onUserRoleChanged = onDocumentWritten(
 
       logger.info(`Custom claim role=${newRole} set for uid=${uid}`);
 
-      // Write a flag so the client knows to refresh its ID token.
       await db.collection("users").doc(uid).update({
         claimsRefreshedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
