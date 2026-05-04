@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/product_repository.dart';
 import '../../../presentation/providers/providers.dart';
 import 'broadcast_screen.dart';
+import 'delivery_fee_screen.dart';
 import 'sales_screen.dart';
 import 'staff_screen.dart';
 
@@ -29,6 +30,13 @@ class MoreScreen extends ConsumerWidget {
             subtitle: 'Send a push to all customers',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => const BroadcastScreen())),
+          ),
+          _Tile(
+            icon: Icons.local_shipping_outlined,
+            title: 'Delivery fee',
+            subtitle: 'Set the delivery charge for customers',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const DeliveryFeeScreen())),
           ),
           _Tile(
             icon: Icons.bar_chart_outlined,
@@ -71,7 +79,8 @@ class MoreScreen extends ConsumerWidget {
         title: const Text('Seed sample products?'),
         content: const Text(
           'This will upload the built-in product catalog (with photos) to '
-          'Firestore. Existing products with the same IDs will be overwritten.',
+          'Firestore. Existing products with the same IDs will be overwritten. '
+          'Use this to restore missing products.',
         ),
         actions: [
           TextButton(
