@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,9 @@ class OrderTrackingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ordersAsync = ref.watch(myOrdersProvider);
+    // Single-document stream — no composite index, costs 1 read per
+    // status change, fully compatible with Firebase free Spark plan.
+    final orderAsync = ref.watch(singleOrderProvider(orderId));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -23,6 +26,7 @@ class OrderTrackingScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         actions: [
+          const _LiveBadge(),
           IconButton(
             tooltip: 'Copy order ID',
             icon: const Icon(Icons.copy_rounded, size: 20),
@@ -35,7 +39,7 @@ class OrderTrackingScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ordersAsync.when(
+      body: orderAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -44,11 +48,7 @@ class OrderTrackingScreen extends ConsumerWidget {
                 style: const TextStyle(color: AppColors.error)),
           ),
         ),
-        data: (orders) {
-          final order = orders.cast<AbeniOrder?>().firstWhere(
-                (o) => o?.id == orderId,
-                orElse: () => null,
-              );
+        data: (order) {
           if (order == null) {
             return const Center(child: Text('Order not found.'));
           }
@@ -58,6 +58,74 @@ class OrderTrackingScreen extends ConsumerWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────── Live Badge ──
+
+class _LiveBadge extends StatefulWidget {
+  const _LiveBadge();
+
+  @override
+  State<_LiveBadge> createState() => _LiveBadgeState();
+}
+
+class _LiveBadgeState extends State<_LiveBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _pulse = Tween<double>(begin: 0.35, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FadeTransition(
+            opacity: _pulse,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: AppColors.statusDelivered,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+          const Text(
+            'Live',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.statusDelivered,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────── Body ──
 
 class _TrackingBody extends StatelessWidget {
   final AbeniOrder order;
@@ -69,7 +137,9 @@ class _TrackingBody extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
       children: [
         _OrderHeader(order: order),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        _StatusBanner(order: order),
+        const SizedBox(height: 16),
         _StatusStepper(order: order),
         const SizedBox(height: 24),
         _SectionTitle(title: 'Items (${order.items.length})'),
@@ -79,6 +149,8 @@ class _TrackingBody extends StatelessWidget {
         _SectionTitle(title: 'Summary'),
         const SizedBox(height: 8),
         _SummaryCard(order: order),
+        const SizedBox(height: 20),
+        _StoreMessages(orderId: order.id),
       ],
     );
   }
@@ -154,6 +226,92 @@ class _OrderHeader extends StatelessWidget {
                 color: statusColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────── Status Banner ──
+
+class _StatusBanner extends StatelessWidget {
+  final AbeniOrder order;
+  const _StatusBanner({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    if (order.status == OrderStatus.delivered) {
+      return _BannerTile(
+        icon: Icons.check_circle_rounded,
+        message: 'Your order has been delivered. Enjoy your purchase!',
+        color: AppColors.statusDelivered,
+      );
+    }
+    if (order.status == OrderStatus.cancelled) {
+      return _BannerTile(
+        icon: Icons.cancel_rounded,
+        message:
+            'This order was cancelled. Place a new order from the store.',
+        color: AppColors.statusCancelled,
+      );
+    }
+    if (order.status == OrderStatus.outForDelivery) {
+      return _BannerTile(
+        icon: Icons.local_shipping_rounded,
+        message:
+            "Your order is on its way! The rider is heading to your address.",
+        color: AppColors.primary,
+      );
+    }
+    if (order.status == OrderStatus.processing) {
+      return _BannerTile(
+        icon: Icons.blender_rounded,
+        message:
+            "We're packing your items carefully. Delivery usually takes 30–60 min after dispatch.",
+        color: AppColors.statusProcessing,
+      );
+    }
+    // pending
+    return _BannerTile(
+      icon: Icons.hourglass_top_rounded,
+      message:
+          "Your order has been received. We'll start preparing it shortly.",
+      color: AppColors.statusPending,
+    );
+  }
+}
+
+class _BannerTile extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final Color color;
+  const _BannerTile(
+      {required this.icon, required this.message, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                fontWeight: FontWeight.w500,
+                height: 1.4,
               ),
             ),
           ),
@@ -275,7 +433,6 @@ class _StepRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── left column: dot + connector line ──
           SizedBox(
             width: 44,
             child: Column(
@@ -297,8 +454,7 @@ class _StepRow extends StatelessWidget {
                     ),
                   ),
                   child: stepState == _State.done
-                      ? Icon(Icons.check_rounded,
-                          size: 18, color: dotColor)
+                      ? Icon(Icons.check_rounded, size: 18, color: dotColor)
                       : Icon(data.icon,
                           size: 18,
                           color: stepState == _State.future
@@ -323,13 +479,9 @@ class _StepRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // ── right column: label + subtitle ──
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(
-                top: 6,
-                bottom: isLast ? 0 : 24,
-              ),
+              padding: EdgeInsets.only(top: 6, bottom: isLast ? 0 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -369,10 +521,7 @@ class _StepRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     data.subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtitleColor,
-                    ),
+                    style: TextStyle(fontSize: 12, color: subtitleColor),
                   ),
                 ],
               ),
@@ -389,7 +538,7 @@ class _StepRow extends StatelessWidget {
       if (step == OrderStatus.pending) return _State.done;
       return _State.future;
     }
-    final order = [
+    const order = [
       OrderStatus.pending,
       OrderStatus.processing,
       OrderStatus.outForDelivery,
@@ -406,7 +555,7 @@ class _StepRow extends StatelessWidget {
     if (state == _State.future) return AppColors.divider;
     if (status == OrderStatus.cancelled) return AppColors.statusCancelled;
     if (status == OrderStatus.delivered) return AppColors.statusDelivered;
-    if (status == OrderStatus.outForDelivery) return AppColors.statusProcessing;
+    if (status == OrderStatus.outForDelivery) return AppColors.primary;
     if (status == OrderStatus.processing) return AppColors.statusProcessing;
     return AppColors.statusPending;
   }
@@ -432,8 +581,11 @@ class _ItemsList extends StatelessWidget {
         children: [
           for (var i = 0; i < order.items.length; i++) ...[
             if (i > 0)
-              const Divider(height: 1, color: AppColors.divider,
-                  indent: 16, endIndent: 16),
+              const Divider(
+                  height: 1,
+                  color: AppColors.divider,
+                  indent: 16,
+                  endIndent: 16),
             _ItemRow(line: order.items[i]),
           ],
         ],
@@ -472,8 +624,8 @@ class _ItemRow extends StatelessWidget {
           ),
           Text(
             formatNaira(line.lineTotal as num),
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 14),
+            style:
+                const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
         ],
       ),
@@ -516,8 +668,8 @@ class _SummaryCard extends StatelessWidget {
           Row(
             children: [
               const Text('Total',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 15)),
+                  style:
+                      TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               const Spacer(),
               Text(
                 formatNaira(order.total),
@@ -561,6 +713,211 @@ class _Row extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────── Store Messages ──
+
+class _StoreMessages extends ConsumerStatefulWidget {
+  final String orderId;
+  const _StoreMessages({required this.orderId});
+
+  @override
+  ConsumerState<_StoreMessages> createState() => _StoreMessagesState();
+}
+
+class _StoreMessagesState extends ConsumerState<_StoreMessages> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final msgsAsync = ref.watch(orderMessagesProvider(widget.orderId));
+
+    return msgsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (msgs) {
+        if (msgs.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Row(
+                children: [
+                  const Text(
+                    'Messages from Store',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${msgs.length}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.textMuted,
+                  ),
+                ],
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity, height: 0),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < msgs.length; i++) ...[
+                        if (i > 0)
+                          const Divider(
+                              height: 1,
+                              color: AppColors.divider,
+                              indent: 16,
+                              endIndent: 16),
+                        _MessageTile(msg: msgs[i]),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
+            ),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MessageTile extends StatelessWidget {
+  final Map<String, dynamic> msg;
+  const _MessageTile({required this.msg});
+
+  IconData get _typeIcon {
+    switch ((msg['type'] as String?) ?? '') {
+      case 'order_status':
+        return Icons.local_shipping_outlined;
+      case 'direct_message':
+        return Icons.chat_bubble_outline_rounded;
+      default:
+        return Icons.notifications_none_rounded;
+    }
+  }
+
+  String _timeStr() {
+    final ts = msg['createdAt'];
+    if (ts == null) return '';
+    DateTime? dt;
+    if (ts is Timestamp) dt = ts.toDate();
+    if (dt == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return formatDate(dt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = (msg['title'] as String?) ?? '';
+    final body = (msg['body'] as String?) ?? '';
+    final isRead = (msg['read'] as bool?) ?? false;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_typeIcon, size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight:
+                              isRead ? FontWeight.w600 : FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    if (!isRead)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
+                if (body.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    body,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  _timeStr(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────── Helpers ──
 
 class _SectionTitle extends StatelessWidget {
@@ -570,8 +927,7 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(title,
-        style: const TextStyle(
-            fontWeight: FontWeight.w800, fontSize: 15));
+        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15));
   }
 }
 
