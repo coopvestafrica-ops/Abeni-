@@ -306,3 +306,31 @@ final unreadNotifCountProvider = StreamProvider<int>((ref) {
       .snapshots()
       .map((snap) => snap.docs.length);
 });
+
+// -------------------- Single Order (real-time, free-plan safe) --------------------
+
+/// Streams a single order document by ID.
+/// Uses a direct document snapshot — no composite index needed,
+/// costs exactly 1 read per status change (Spark plan compatible).
+final singleOrderProvider =
+    StreamProvider.family<AbeniOrder?, String>((ref, orderId) {
+  return ref.watch(orderRepositoryProvider).watchSingleOrder(orderId);
+});
+
+// -------------------- Order Messages --------------------
+
+/// Streams all customer_messages for a given orderId, oldest first.
+/// Uses the composite index: orderId ASC + createdAt ASC (already deployed).
+final orderMessagesProvider = StreamProvider.family<
+    List<Map<String, dynamic>>, String>((ref, orderId) {
+  if (orderId.isEmpty) return Stream.value([]);
+  return FirebaseFirestore.instance
+      .collection('customer_messages')
+      .where('orderId', isEqualTo: orderId)
+      .orderBy('createdAt', descending: false)
+      .snapshots()
+      .map((snap) => snap.docs
+          .map((d) => <String, dynamic>{'id': d.id, ...d.data()})
+          .toList())
+      .handleError((_) => <Map<String, dynamic>>[]);
+});
