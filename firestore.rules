@@ -2,15 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
 
-    // ── helper functions ──────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────
+
     function isAuthed() {
       return request.auth != null;
     }
 
-    // Check admin/staff via Auth Custom Claims first (fast — no extra
-    // Firestore read).  Fall back to the users document so the app works
-    // immediately, even before the onUserRoleChanged Cloud Function has
-    // been deployed and users have re-signed-in to refresh their token.
+    // Checks admin/staff via Auth Custom Claims first (fast — no extra
+    // Firestore read). Falls back to the users document so rules work
+    // immediately, even before the Cloud Function sets claims and the
+    // user re-signs-in to refresh their token.
     function isAdmin() {
       return isAuthed() && (
         request.auth.token.get('role', '') in ['admin', 'staff']
@@ -20,33 +21,45 @@ service cloud.firestore {
       );
     }
 
+    function isSelf(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+
     // ── store_config ──────────────────────────────────────────────────
+    // Delivery fee and store settings are public-readable (needed at
+    // checkout) and admin-only writable.
     match /store_config/{doc} {
-      allow read: if true;
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
     // ── users ─────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read: if isAuthed() && (request.auth.uid == uid || isAdmin());
-      allow create: if isAuthed() && request.auth.uid == uid;
-      allow update: if isAuthed() && (request.auth.uid == uid || isAdmin());
+      allow read:   if isSelf(uid) || isAdmin();
+      allow create: if isSelf(uid);
+      // Customers can update their own profile (name, address, phone).
+      // Admins can also update (e.g. to assign role via the staff screen).
+      allow update: if isSelf(uid) || isAdmin();
       allow delete: if isAdmin();
 
+      // FCM device tokens — only the owning user or an admin may manage.
       match /fcm_tokens/{token} {
-        allow read, write: if isAuthed() &&
-          (request.auth.uid == uid || isAdmin());
+        allow read, write: if isSelf(uid) || isAdmin();
       }
     }
 
     // ── orders ────────────────────────────────────────────────────────
     match /orders/{orderId} {
+      // A customer may read only their own orders.
       allow read: if isAuthed() &&
         (resource.data.userId == request.auth.uid || isAdmin());
 
+      // A customer may create an order for themselves only.
       allow create: if isAuthed() &&
         request.resource.data.userId == request.auth.uid;
 
+      // A customer may cancel their own pending order, touching only the
+      // status field. Admins have unrestricted update access.
       allow update: if isAdmin() || (
         isAuthed() &&
         resource.data.userId == request.auth.uid &&
@@ -58,28 +71,58 @@ service cloud.firestore {
 
       allow delete: if isAdmin();
 
+      // Internal staff notes — visible to admin/staff only.
       match /notes/{noteId} {
         allow read, write: if isAdmin();
       }
     }
 
     // ── products ──────────────────────────────────────────────────────
+    // Public catalog — anyone can browse. Only admin can manage stock.
     match /products/{productId} {
-      allow read: if true;
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
     // ── broadcasts ────────────────────────────────────────────────────
+    // Store-wide announcements — readable by signed-in customers,
+    // writable only by admin.
     match /broadcasts/{broadcastId} {
-      allow read: if isAuthed();
+      allow read:  if isAuthed();
       allow write: if isAdmin();
     }
 
     // ── customer_messages ─────────────────────────────────────────────
+    // Per-customer notification inbox.
+    //
+    // Security model:
+    //   • A customer can READ only messages addressed to them.
+    //   • A customer can UPDATE only the `read` field (mark as read/unread).
+    //     Any attempt to alter title, body, orderId, userId, type, or
+    //     createdAt is rejected.
+    //   • A customer can NEVER create or delete their own messages —
+    //     only admins and Cloud Functions (admin SDK, bypasses rules) can.
+    //   • Admins and staff have full read/write access.
     match /customer_messages/{msgId} {
-      allow read: if isAuthed() &&
-        resource.data.userId == request.auth.uid;
-      allow read, write: if isAdmin();
+
+      // Customers read their own; admins read all.
+      allow read: if isAdmin() || (
+        isAuthed() && resource.data.userId == request.auth.uid
+      );
+
+      // Customers may mark messages as read — ONLY the `read` field,
+      // and only their own messages. No other fields may be changed.
+      allow update: if isAdmin() || (
+        isAuthed() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['read']) &&
+        request.resource.data.read is bool
+      );
+
+      // Only admins (or Cloud Functions via admin SDK) may create or
+      // delete messages. Customers cannot write new inbox entries.
+      allow create, delete: if isAdmin();
     }
   }
 }
