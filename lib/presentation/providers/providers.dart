@@ -292,3 +292,17 @@ final cancelOrderProvider =
 /// Set to a route path when the user taps a push notification.
 /// A listener in main.dart navigates and then resets this to null.
 final notificationRouteProvider = StateProvider<String?>((ref) => null);
+
+// -------------------- Customer Notifications (Inbox) --------------------
+
+/// Unread notification count for the current user.
+final unreadNotifCountProvider = StreamProvider<int>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return Stream.value(0);
+  return FirebaseFirestore.instance
+      .collection('customer_messages')
+      .where('userId', isEqualTo: user.id)
+      .where('read', isEqualTo: false)
+      .snapshots()
+      .map((snap) => snap.docs.length);
+});
