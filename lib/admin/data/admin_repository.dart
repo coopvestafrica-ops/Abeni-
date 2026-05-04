@@ -43,9 +43,7 @@ class AdminRepository {
   }
 
   /// Update an order's status. Fires a notification record so the customer
-  /// receives a push the next time their app reads from Firestore (or
-  /// immediately, if a Cloud Function is wired up to the
-  /// `customer_messages` collection).
+  /// receives a push via Cloud Functions on the `customer_messages` collection.
   Future<void> updateOrderStatus({
     required AbeniOrder order,
     required OrderStatus newStatus,
@@ -121,6 +119,35 @@ class AdminRepository {
     await batch.commit();
   }
 
+  /// Permanently delete a single order document.
+  Future<void> deleteOrder(String orderId) async {
+    if (!_useFirebase) return;
+    await FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .delete();
+  }
+
+  /// Delete all orders with status [delivered] or [cancelled].
+  /// Returns the number of orders deleted.
+  Future<int> clearCompletedOrders() async {
+    if (!_useFirebase) return 0;
+    final snap = await FirebaseFirestore.instance
+        .collection('orders')
+        .where('status', whereIn: [
+          OrderStatus.delivered.wireKey,
+          OrderStatus.cancelled.wireKey,
+        ])
+        .get();
+    if (snap.docs.isEmpty) return 0;
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+    return snap.docs.length;
+  }
+
   // ------------------------------------------------------------- products ---
 
   Stream<List<Product>> watchAllProducts() {
@@ -175,9 +202,6 @@ class AdminRepository {
 
   // --------------------------------------------------------- broadcasts ---
 
-  /// Send a store-wide broadcast that every customer device picks up the
-  /// next time they open the app. Add a Cloud Function on this collection
-  /// to also dispatch a real FCM push when the app is closed.
   Future<void> sendBroadcast({
     required String authorName,
     required String title,
@@ -211,8 +235,6 @@ class AdminRepository {
 
   // ----------------------------------------------------------- helpers ---
 
-  /// Demo orders served when Firebase isn't initialised. Helps reviewers
-  /// see the admin UI immediately without wiring up a backend.
   List<AbeniOrder> _demoOrders() => const [];
 
   String _statusTitle(OrderStatus s) {
