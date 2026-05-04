@@ -62,7 +62,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'The customer will be notified.',
+                'The customer will be notified via push notification.',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 12),
@@ -167,6 +167,49 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     );
   }
 
+  Future<void> _deleteOrder() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this order?'),
+        content: Text(
+          'Order #${widget.order.id} will be permanently removed from the list. '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(adminRepositoryProvider)
+          .deleteOrder(widget.order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Order deleted'),
+            backgroundColor: AppColors.success),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: AppColors.error),
+      );
+      setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
@@ -178,6 +221,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
             tooltip: 'Add internal note',
             icon: const Icon(Icons.note_add_outlined),
             onPressed: _busy ? null : _addInternalNote,
+          ),
+          IconButton(
+            tooltip: 'Delete order',
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            onPressed: _busy ? null : _deleteOrder,
           ),
         ],
       ),
@@ -283,6 +331,16 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
           const _SectionHeader(title: 'Update status'),
           const SizedBox(height: 8),
           ..._statusButtons(order),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _deleteOrder,
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            label: const Text('Delete this order',
+                style: TextStyle(color: AppColors.error)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.error),
+            ),
+          ),
         ],
       ),
     );
