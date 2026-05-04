@@ -7,6 +7,7 @@ import '../../../data/repositories/product_repository.dart';
 import '../../../presentation/providers/providers.dart';
 import 'broadcast_screen.dart';
 import 'delivery_fee_screen.dart';
+import 'direct_message_screen.dart';
 import 'sales_screen.dart';
 import 'staff_screen.dart';
 
@@ -30,6 +31,13 @@ class MoreScreen extends ConsumerWidget {
             subtitle: 'Send a push to all customers',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => const BroadcastScreen())),
+          ),
+          _Tile(
+            icon: Icons.mark_chat_unread_outlined,
+            title: 'Message a customer',
+            subtitle: 'Send a targeted push to one specific customer',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const DirectMessageScreen())),
           ),
           _Tile(
             icon: Icons.local_shipping_outlined,
