@@ -21,6 +21,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ── Preflight: check that FIREBASE_TOKEN is configured ────────────
+      - name: Check FIREBASE_TOKEN secret
+        env:
+          HAS_TOKEN: ${{ secrets.FIREBASE_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════════╗"
+            echo "║          FIREBASE_TOKEN secret is NOT configured             ║"
+            echo "╠══════════════════════════════════════════════════════════════╣"
+            echo "║                                                              ║"
+            echo "║  This workflow needs a Firebase CI token to deploy rules,    ║"
+            echo "║  indexes, and Cloud Functions to your Firebase project.      ║"
+            echo "║                                                              ║"
+            echo "║  HOW TO FIX (one-time setup, takes ~2 minutes):             ║"
+            echo "║                                                              ║"
+            echo "║  1. On your local machine, run:                              ║"
+            echo "║       firebase login:ci                                      ║"
+            echo "║     Copy the token it prints (starts with '1//0g...').       ║"
+            echo "║                                                              ║"
+            echo "║  2. Go to your GitHub repo:                                  ║"
+            echo "║       https://github.com/coopvestafrica-ops/Abeni-           ║"
+            echo "║     → Settings → Secrets and variables → Actions             ║"
+            echo "║     → New repository secret                                  ║"
+            echo "║       Name:  FIREBASE_TOKEN                                  ║"
+            echo "║       Value: <paste the token from step 1>                   ║"
+            echo "║                                                              ║"
+            echo "║  3. Re-run this workflow (Actions → Re-run all jobs).        ║"
+            echo "║                                                              ║"
+            echo "║  ALTERNATIVE — deploy manually from your machine:            ║"
+            echo "║    firebase login                                             ║"
+            echo "║    firebase deploy --only firestore:rules,firestore:indexes  ║"
+            echo "║    firebase deploy --only functions                           ║"
+            echo "║                                                              ║"
+            echo "╚══════════════════════════════════════════════════════════════╝"
+            echo ""
+            exit 1
+          fi
+          echo "✓ FIREBASE_TOKEN secret is present. Proceeding with deployment."
+
+      # ── Setup ─────────────────────────────────────────────────────────
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,11 +76,38 @@ jobs:
         run: npm ci
         working-directory: functions
 
+      # ── Deploy ────────────────────────────────────────────────────────
       - name: Deploy Firestore rules
-        run: firebase deploy --only firestore:rules --project abeni-mart --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: |
+          firebase deploy --only firestore:rules \
+            --project abeni-mart \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
 
       - name: Deploy Firestore indexes
-        run: firebase deploy --only firestore:indexes --project abeni-mart --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: |
+          firebase deploy --only firestore:indexes \
+            --project abeni-mart \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
 
       - name: Deploy Cloud Functions
-        run: firebase deploy --only functions --project abeni-mart --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: |
+          firebase deploy --only functions \
+            --project abeni-mart \
+            --token "${{ secrets.FIREBASE_TOKEN }}"
+
+      # ── Summary ───────────────────────────────────────────────────────
+      - name: Print deployment summary
+        run: |
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║              Firebase deployment complete ✓                  ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║  Deployed:                                                   ║"
+          echo "║    • Firestore security rules  (firestore.rules)             ║"
+          echo "║    • Firestore composite indexes  (firestore.indexes.json)   ║"
+          echo "║    • Cloud Functions  (functions/index.js)                   ║"
+          echo "║                                                              ║"
+          echo "║  Project: abeni-mart                                         ║"
+          echo "║  Console: https://console.firebase.google.com/               ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
