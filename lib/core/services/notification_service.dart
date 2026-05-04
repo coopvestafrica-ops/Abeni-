@@ -25,6 +25,7 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
+  /// High-importance channel with sound — used for order updates.
   static const AndroidNotificationChannel _orderChannel =
       AndroidNotificationChannel(
     'abeni_order_updates',
@@ -32,13 +33,14 @@ class NotificationService {
     description:
         'Status updates for your Abeni Mart orders: processing, out for delivery, delivered.',
     importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
   );
 
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
 
   /// Stream of route paths emitted when the user taps a notification.
-  /// Consumers should navigate to this path and then ignore subsequent nulls.
   final StreamController<String> _tapRouteController =
       StreamController<String>.broadcast();
   Stream<String> get onNotificationTap => _tapRouteController.stream;
@@ -71,21 +73,25 @@ class NotificationService {
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      defaultPresentSound: true,
+      defaultPresentAlert: true,
+      defaultPresentBadge: true,
     );
     await _local.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
       onDidReceiveNotificationResponse: (details) {
-        // User tapped a local notification while app was in foreground.
         final route = _routeFromPayload(details.payload);
         if (route != null) _tapRouteController.add(route);
       },
     );
+
+    // Create the Android notification channel with sound enabled.
     await _local
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_orderChannel);
 
-    // Foreground FCM push → show as local notification so user can tap it.
+    // Foreground FCM push → show as local notification with sound.
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
 
     // Background / quit tap — app was opened by tapping a notification.
@@ -120,15 +126,22 @@ class NotificationService {
           channelDescription: _orderChannel.description,
           importance: Importance.high,
           priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+          // Use the system default notification sound.
+          sound: null,
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(
+          presentSound: true,
+          presentAlert: true,
+          presentBadge: true,
+        ),
       ),
       payload: payload,
     );
   }
 
   /// Derives a GoRouter route path from an FCM message's data payload.
-  /// Returns '/orders' when an orderId is present, null otherwise.
   String? _routeFromMessage(RemoteMessage message) {
     final orderId = message.data['orderId'];
     if (orderId != null && (orderId as String).isNotEmpty) return '/orders';
@@ -137,7 +150,6 @@ class NotificationService {
     return null;
   }
 
-  /// Same derivation but from a local-notification payload string.
   String? _routeFromPayload(String? payload) {
     if (payload == null || payload.isEmpty) return null;
     return payload;
