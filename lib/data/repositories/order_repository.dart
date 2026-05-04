@@ -146,6 +146,30 @@ class OrderRepository {
     return _demoOrders.where((o) => o.userId == userId).toList();
   }
 
+  /// Real-time stream of a single order document.
+  ///
+  /// Uses a direct document snapshot — no query index required and costs
+  /// exactly one read per status change (free plan safe).
+  Stream<AbeniOrder?> watchSingleOrder(String orderId) {
+    if (!_useFirebase) {
+      final idx = _demoOrders.indexWhere((o) => o.id == orderId);
+      return Stream.value(idx >= 0 ? _demoOrders[idx] : null);
+    }
+    return FirebaseFirestore.instance
+        .collection('orders')
+        .doc(orderId)
+        .snapshots()
+        .map((snap) {
+      if (!snap.exists) return null;
+      try {
+        return AbeniOrder.fromMap(snap.id, snap.data()!);
+      } catch (e) {
+        debugPrint('[OrderRepository] watchSingleOrder parse error: $e');
+        return null;
+      }
+    });
+  }
+
   /// Cancels a pending order. Only allowed while status == pending.
   Future<void> cancelOrder(String orderId) async {
     if (_useFirebase) {
