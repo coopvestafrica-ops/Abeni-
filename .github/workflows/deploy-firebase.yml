@@ -32,9 +32,6 @@ jobs:
             echo "║          FIREBASE_TOKEN secret is NOT configured             ║"
             echo "╠══════════════════════════════════════════════════════════════╣"
             echo "║                                                              ║"
-            echo "║  This workflow needs a Firebase CI token to deploy rules,    ║"
-            echo "║  indexes, and Cloud Functions to your Firebase project.      ║"
-            echo "║                                                              ║"
             echo "║  HOW TO FIX (one-time setup, takes ~2 minutes):             ║"
             echo "║                                                              ║"
             echo "║  1. On your local machine, run:                              ║"
@@ -49,12 +46,6 @@ jobs:
             echo "║       Value: <paste the token from step 1>                   ║"
             echo "║                                                              ║"
             echo "║  3. Re-run this workflow (Actions → Re-run all jobs).        ║"
-            echo "║                                                              ║"
-            echo "║  ALTERNATIVE — deploy manually from your machine:            ║"
-            echo "║    firebase login                                             ║"
-            echo "║    firebase deploy --only firestore:rules,firestore:indexes  ║"
-            echo "║    firebase deploy --only functions                           ║"
-            echo "║                                                              ║"
             echo "╚══════════════════════════════════════════════════════════════╝"
             echo ""
             exit 1
@@ -76,7 +67,7 @@ jobs:
         run: npm ci
         working-directory: functions
 
-      # ── Deploy ────────────────────────────────────────────────────────
+      # ── Deploy Firestore (works on Spark and Blaze plans) ─────────────
       - name: Deploy Firestore rules
         run: |
           firebase deploy --only firestore:rules \
@@ -89,25 +80,63 @@ jobs:
             --project abeni-mart \
             --token "${{ secrets.FIREBASE_TOKEN }}"
 
+      # ── Deploy Cloud Functions (requires Blaze plan) ──────────────────
       - name: Deploy Cloud Functions
+        id: deploy_functions
+        continue-on-error: true
         run: |
           firebase deploy --only functions \
             --project abeni-mart \
             --token "${{ secrets.FIREBASE_TOKEN }}"
 
-      # ── Summary ───────────────────────────────────────────────────────
-      - name: Print deployment summary
+      - name: Cloud Functions — explain if deploy failed
+        if: steps.deploy_functions.outcome == 'failure'
         run: |
           echo ""
           echo "╔══════════════════════════════════════════════════════════════╗"
-          echo "║              Firebase deployment complete ✓                  ║"
+          echo "║       Cloud Functions deploy needs the Blaze plan            ║"
           echo "╠══════════════════════════════════════════════════════════════╣"
-          echo "║  Deployed:                                                   ║"
-          echo "║    • Firestore security rules  (firestore.rules)             ║"
-          echo "║    • Firestore composite indexes  (firestore.indexes.json)   ║"
-          echo "║    • Cloud Functions  (functions/index.js)                   ║"
           echo "║                                                              ║"
-          echo "║  Project: abeni-mart                                         ║"
-          echo "║  Console: https://console.firebase.google.com/               ║"
+          echo "║  Cloud Functions require Google APIs that Firebase only      ║"
+          echo "║  enables on the Blaze (pay-as-you-go) billing plan.          ║"
+          echo "║                                                              ║"
+          echo "║  Firestore rules and indexes deployed successfully above.    ║"
+          echo "║  Only Cloud Functions (push notifications) are affected.     ║"
+          echo "║                                                              ║"
+          echo "║  TO ENABLE CLOUD FUNCTIONS:                                  ║"
+          echo "║    1. Upgrade to Blaze plan (free quota still applies —      ║"
+          echo "║       you only pay if you exceed free limits):               ║"
+          echo "║       https://console.firebase.google.com/project/abeni-mart/usage/details"
+          echo "║                                                              ║"
+          echo "║    2. Re-run this workflow after upgrading.                   ║"
+          echo "║                                                              ║"
+          echo "║  NOTE: The Blaze plan has a generous free tier:              ║"
+          echo "║    • 2M function invocations/month free                      ║"
+          echo "║    • 400K GB-seconds compute/month free                      ║"
+          echo "║    A billing account is required but charges only apply      ║"
+          echo "║    above the free limits.                                    ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo ""
+
+      # ── Summary ───────────────────────────────────────────────────────
+      - name: Print deployment summary
+        if: always()
+        run: |
+          echo ""
+          RULES_STATUS="✓ deployed"
+          INDEXES_STATUS="✓ deployed"
+          if [ "${{ steps.deploy_functions.outcome }}" = "success" ]; then
+            FN_STATUS="✓ deployed"
+          else
+            FN_STATUS="✗ skipped (upgrade Firebase project to Blaze plan)"
+          fi
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║                  Firebase Deploy Summary                     ║"
+          echo "╠══════════════════════════════════════════════════════════════╣"
+          echo "║  Firestore rules   : $RULES_STATUS"
+          echo "║  Firestore indexes : $INDEXES_STATUS"
+          echo "║  Cloud Functions   : $FN_STATUS"
+          echo "║                                                              ║"
+          echo "║  Project console: https://console.firebase.google.com/       ║"
           echo "╚══════════════════════════════════════════════════════════════╝"
           echo ""
