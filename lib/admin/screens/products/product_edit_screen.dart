@@ -6,7 +6,74 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/product.dart';
 import '../../../data/models/product_unit.dart';
+import '../../../presentation/widgets/product_image.dart';
 import '../../data/admin_providers.dart';
+
+/// All product images bundled in assets/images/products/.
+/// Update this list whenever you add new images to the folder.
+const _kProductAssets = [
+  'assets/images/products/annyb_spag.jpg',
+  'assets/images/products/beans_oloyin.jpg',
+  'assets/images/products/beans_white.jpg',
+  'assets/images/products/bournvita_refill.jpg',
+  'assets/images/products/bournvita_sachet.jpg',
+  'assets/images/products/close_up.jpg',
+  'assets/images/products/colgate_herbal.jpg',
+  'assets/images/products/derica_paste.jpg',
+  'assets/images/products/dettol_cool.jpg',
+  'assets/images/products/dettol_original.jpg',
+  'assets/images/products/emperor_25l.jpg',
+  'assets/images/products/eva_soap.jpg',
+  'assets/images/products/flour.jpg',
+  'assets/images/products/garri.jpg',
+  'assets/images/products/gino_paste.jpg',
+  'assets/images/products/golden_morn.jpg',
+  'assets/images/products/gp_jollof.jpg',
+  'assets/images/products/gp_noodles.jpg',
+  'assets/images/products/gp_soya_oil.jpg',
+  'assets/images/products/hot_pepper.jpg',
+  'assets/images/products/indomie_super.jpg',
+  'assets/images/products/king_oil_1000.jpg',
+  'assets/images/products/maggi_know.jpg',
+  'assets/images/products/magnate_tomato.jpg',
+  'assets/images/products/milo_3in1.jpg',
+  'assets/images/products/milo_400.jpg',
+  'assets/images/products/milo_800.jpg',
+  'assets/images/products/nasco_cornflakes.jpg',
+  'assets/images/products/nittol.jpg',
+  'assets/images/products/oralb.jpg',
+  'assets/images/products/party_jollof.jpg',
+  'assets/images/products/peak_refill.jpg',
+  'assets/images/products/peak_sachet.jpg',
+  'assets/images/products/pepsodent_123.jpg',
+  'assets/images/products/pepsodent_ord.jpg',
+  'assets/images/products/rice.jpg',
+  'assets/images/products/semovita_10kg.jpg',
+  'assets/images/products/semovita_2kg.jpg',
+  'assets/images/products/semovita_5kg.jpg',
+  'assets/images/products/septo.jpg',
+  'assets/images/products/spaghetti_gp_8mm.jpg',
+  'assets/images/products/sugar.jpg',
+  'assets/images/products/three_crown_can.jpg',
+  'assets/images/products/three_crown_refill.jpg',
+  'assets/images/products/three_crown_sachet.jpg',
+  'assets/images/products/tissue_paper.jpg',
+  'assets/images/products/top_tea.jpg',
+  'assets/images/products/waw.jpg',
+];
+
+/// Turns an asset path like `assets/images/products/garri.jpg`
+/// into a readable label like `Garri`.
+String _labelFromAsset(String path) {
+  final filename = path.split('/').last; // garri.jpg
+  final noExt = filename.contains('.')
+      ? filename.substring(0, filename.lastIndexOf('.'))
+      : filename; // garri
+  return noExt
+      .split('_')
+      .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+}
 
 class ProductEditScreen extends ConsumerStatefulWidget {
   const ProductEditScreen({super.key, this.existing});
@@ -21,7 +88,7 @@ class ProductEditScreen extends ConsumerStatefulWidget {
 class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
   final _name = TextEditingController();
   final _description = TextEditingController();
-  final _imageUrl = TextEditingController();
+  String _imageUrl = '';
   String _categoryId = AppConstants.categories.first.id;
   bool _featured = false;
   late List<_UnitDraft> _units;
@@ -38,7 +105,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     if (p != null) {
       _name.text = p.name;
       _description.text = p.description;
-      _imageUrl.text = p.imageUrl;
+      _imageUrl = p.imageUrl;
       _categoryId = AppConstants.categories.any((c) => c.id == p.categoryId)
           ? p.categoryId
           : AppConstants.categories.first.id;
@@ -53,7 +120,6 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
   void dispose() {
     _name.dispose();
     _description.dispose();
-    _imageUrl.dispose();
     for (final u in _units) {
       u.dispose();
     }
@@ -80,7 +146,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
         name: _name.text.trim(),
         categoryId: _categoryId,
         description: _description.text.trim(),
-        imageUrl: _imageUrl.text.trim(),
+        imageUrl: _imageUrl.trim(),
         featured: _featured,
         units: units,
       );
@@ -139,8 +205,21 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     );
   }
 
+  Future<void> _pickImage() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ImagePickerSheet(current: _imageUrl),
+    );
+    if (picked != null) {
+      setState(() => _imageUrl = picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasImage = _imageUrl.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Edit product' : 'New product'),
@@ -185,14 +264,46 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
                 setState(() => _categoryId = v ?? _categoryId),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _imageUrl,
-            decoration: const InputDecoration(
-              labelText: 'Image URL or asset path',
-              hintText: 'assets/images/products/... or https://...',
-              prefixIcon: Icon(Icons.image_outlined),
+
+          // ── Image picker ──────────────────────────────────────────
+          const Text('Product image',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              height: 160,
+              decoration: BoxDecoration(
+                color: AppColors.divider.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.divider),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: hasImage
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ProductImage(imageUrl: _imageUrl, fit: BoxFit.cover),
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: _ChangeImageBadge(),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.add_photo_alternate_outlined,
+                            size: 40, color: AppColors.textMuted),
+                        SizedBox(height: 8),
+                        Text('Tap to choose an image',
+                            style: TextStyle(color: AppColors.textMuted)),
+                      ],
+                    ),
             ),
           ),
+          // ── End image picker ──────────────────────────────────────
           const SizedBox(height: 12),
           SwitchListTile(
             value: _featured,
@@ -241,6 +352,254 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
             label: Text(_isEditing ? 'Save changes' : 'Create product'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ChangeImageBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.edit, size: 14, color: Colors.white),
+          SizedBox(width: 4),
+          Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImagePickerSheet extends StatefulWidget {
+  const _ImagePickerSheet({required this.current});
+  final String current;
+
+  @override
+  State<_ImagePickerSheet> createState() => _ImagePickerSheetState();
+}
+
+class _ImagePickerSheetState extends State<_ImagePickerSheet> {
+  late String _selected;
+  final _customController = TextEditingController();
+  bool _showCustom = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.current;
+    // If the current value is not one of the bundled assets, show custom field
+    if (_selected.isNotEmpty && !_kProductAssets.contains(_selected)) {
+      _customController.text = _selected;
+      _showCustom = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Container(
+      height: mq.size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Text('Choose an image',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                TextButton(
+                  onPressed: () =>
+                      Navigator.of(context).pop(_selected.isNotEmpty ? _selected : null),
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: _kProductAssets.length + 1,
+              itemBuilder: (ctx, index) {
+                // Last cell = custom URL option
+                if (index == _kProductAssets.length) {
+                  return _CustomUrlCell(
+                    controller: _customController,
+                    expanded: _showCustom,
+                    onTap: () => setState(() => _showCustom = !_showCustom),
+                    onConfirm: () {
+                      final v = _customController.text.trim();
+                      if (v.isNotEmpty) {
+                        setState(() {
+                          _selected = v;
+                          _showCustom = false;
+                        });
+                      }
+                    },
+                  );
+                }
+                final path = _kProductAssets[index];
+                final isSelected = _selected == path;
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _selected = path;
+                    _showCustom = false;
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.primary
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(path, fit: BoxFit.cover),
+                        if (isSelected)
+                          Container(
+                            color: AppColors.primary.withOpacity(0.15),
+                            child: const Center(
+                              child: Icon(Icons.check_circle,
+                                  color: AppColors.primary, size: 28),
+                            ),
+                          ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 3),
+                            color: Colors.black.withOpacity(0.45),
+                            child: Text(
+                              _labelFromAsset(path),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomUrlCell extends StatelessWidget {
+  const _CustomUrlCell({
+    required this.controller,
+    required this.expanded,
+    required this.onTap,
+    required this.onConfirm,
+  });
+
+  final TextEditingController controller;
+  final bool expanded;
+  final VoidCallback onTap;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        padding: const EdgeInsets.all(8),
+        child: expanded
+            ? Column(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      style: const TextStyle(fontSize: 11),
+                      decoration: const InputDecoration(
+                        hintText: 'Paste URL…',
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.all(6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: onConfirm,
+                      style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 4)),
+                      child: const Text('Use', style: TextStyle(fontSize: 11)),
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.link, color: AppColors.textMuted),
+                  SizedBox(height: 4),
+                  Text('Custom\nURL',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 10, color: AppColors.textMuted)),
+                ],
+              ),
       ),
     );
   }
