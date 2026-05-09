@@ -4,8 +4,9 @@
  * Triggers:
  *   1. customer_messages/{id}  → push to that single customer's devices.
  *   2. broadcasts/{id}         → push to the "customers" topic.
- *   3. orders/{id}             → direct push when order status changes.
- *   4. users/{uid}             → set Firebase Auth custom claims when the
+ *   3. orders/{id} (written)   → direct push when order status changes.
+ *   4. orders/{id} (created)   → push to "admins" topic on new order.
+ *   5. users/{uid}             → set Firebase Auth custom claims when the
  *                                user's `role` field changes (admin/staff).
  *
  * Deploy:
@@ -132,7 +133,7 @@ exports.onOrderStatusChanged = onDocumentWritten(
     const after = event.data?.after?.data();
 
     if (!after) return; // document deleted
-    if (!before) return; // document created (handled when customer places order)
+    if (!before) return; // document created — handled by onNewOrderCreated below
 
     const oldStatus = before.status;
     const newStatus = after.status;
@@ -199,7 +200,69 @@ exports.onOrderStatusChanged = onDocumentWritten(
 );
 
 // --------------------------------------------------------------------------- //
-// 4. Sync user role → Firebase Auth custom claims.                            //
+// 4. New order → notify ALL admins via the "admins" FCM topic.                //
+//    Fires every time a new order document is created.                        //
+// --------------------------------------------------------------------------- //
+exports.onNewOrderCreated = onDocumentCreated(
+  "orders/{orderId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const order = snap.data();
+    const orderId = event.params.orderId;
+
+    const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+    const totalRaw = typeof order.total === "number" ? order.total : 0;
+    const total = totalRaw.toLocaleString("en-NG", {
+      style: "currency",
+      currency: "NGN",
+      minimumFractionDigits: 0,
+    });
+    const fulfillment = order.fulfillmentType === "pickup" ? "pickup" : "delivery";
+
+    const message = {
+      topic: "admins",
+      notification: {
+        title: "New order received! 🛒",
+        body: `Order #${orderId} — ${itemCount} item${itemCount !== 1 ? "s" : ""} · ${total} (${fulfillment})`,
+      },
+      data: stringifyData({
+        type: "new_order",
+        orderId,
+        total: String(totalRaw),
+        fulfillmentType: order.fulfillmentType || "delivery",
+      }),
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "abeni_admin_orders",
+          sound: "default",
+          defaultSound: true,
+          vibrateTimingsMillis: [0, 300, 200, 300],
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+            "content-available": 1,
+          },
+        },
+      },
+    };
+
+    try {
+      const id = await fcm.send(message);
+      logger.info("Admin new-order push sent", { id, orderId });
+    } catch (e) {
+      logger.error("Admin new-order push failed", { orderId, error: e });
+    }
+  }
+);
+
+// --------------------------------------------------------------------------- //
+// 5. Sync user role → Firebase Auth custom claims.                            //
 // --------------------------------------------------------------------------- //
 exports.onUserRoleChanged = onDocumentWritten(
   "users/{uid}",

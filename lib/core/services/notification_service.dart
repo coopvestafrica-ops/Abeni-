@@ -25,7 +25,7 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
-  /// High-importance channel with sound — used for order updates.
+  /// High-importance channel with sound — used for order updates (customers).
   static const AndroidNotificationChannel _orderChannel =
       AndroidNotificationChannel(
     'abeni_order_updates',
@@ -33,6 +33,17 @@ class NotificationService {
     description:
         'Status updates for your Abeni Mart orders: processing, out for delivery, delivered.',
     importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  /// Max-importance channel for new order alerts (admin/staff).
+  static const AndroidNotificationChannel _adminChannel =
+      AndroidNotificationChannel(
+    'abeni_admin_orders',
+    'New order alerts',
+    description: 'New order and important store alerts for Abeni Mart admins.',
+    importance: Importance.max,
     playSound: true,
     enableVibration: true,
   );
@@ -85,11 +96,13 @@ class NotificationService {
       },
     );
 
-    // Create the Android notification channel with sound enabled.
-    await _local
+    final androidPlugin = _local
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_orderChannel);
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    // Create both notification channels.
+    await androidPlugin?.createNotificationChannel(_orderChannel);
+    await androidPlugin?.createNotificationChannel(_adminChannel);
 
     // Foreground FCM push → show as local notification with sound.
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
@@ -115,20 +128,25 @@ class NotificationService {
     final notif = message.notification;
     if (notif == null) return;
     final payload = _routeFromMessage(message);
+
+    // Use admin channel for new-order alerts, order channel for everything else.
+    final type = message.data['type'] as String? ?? '';
+    final isAdminAlert = type == 'new_order';
+    final channel = isAdminAlert ? _adminChannel : _orderChannel;
+
     await _local.show(
       message.hashCode,
       notif.title ?? 'Abeni Mart',
       notif.body ?? '',
       NotificationDetails(
         android: AndroidNotificationDetails(
-          _orderChannel.id,
-          _orderChannel.name,
-          channelDescription: _orderChannel.description,
-          importance: Importance.high,
-          priority: Priority.high,
+          channel.id,
+          channel.name,
+          channelDescription: channel.description,
+          importance: channel.importance,
+          priority: isAdminAlert ? Priority.max : Priority.high,
           playSound: true,
           enableVibration: true,
-          // Use the system default notification sound.
           sound: null,
         ),
         iOS: const DarwinNotificationDetails(
@@ -143,9 +161,10 @@ class NotificationService {
 
   /// Derives a GoRouter route path from an FCM message's data payload.
   String? _routeFromMessage(RemoteMessage message) {
+    final type = message.data['type'] as String?;
+    if (type == 'new_order') return '/orders';
     final orderId = message.data['orderId'];
     if (orderId != null && (orderId as String).isNotEmpty) return '/orders';
-    final type = message.data['type'] as String?;
     if (type == 'broadcast') return '/home';
     return null;
   }
@@ -155,7 +174,7 @@ class NotificationService {
     return payload;
   }
 
-  /// Registers the device's FCM token against the Firestore user document.
+  /// Registers a customer device's FCM token against their Firestore doc.
   Future<void> registerForUser(String userId) async {
     if (!FirebaseService.isInitialized) return;
     try {
@@ -187,6 +206,42 @@ class NotificationService {
           .delete();
     } catch (e) {
       debugPrint('[FCM] unregisterForUser failed: $e');
+    }
+  }
+
+  /// Registers an admin/staff device's FCM token and subscribes to the
+  /// `admins` topic so they receive new-order push notifications.
+  Future<void> registerForAdmin(String userId) async {
+    if (!FirebaseService.isInitialized) return;
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+      await _persistToken(userId, token);
+      await FirebaseMessaging.instance.subscribeToTopic('admins');
+      await FirebaseMessaging.instance.subscribeToTopic('user_$userId');
+      FirebaseMessaging.instance.onTokenRefresh.listen((t) {
+        _persistToken(userId, t);
+      });
+    } catch (e) {
+      debugPrint('[FCM] registerForAdmin failed: $e');
+    }
+  }
+
+  Future<void> unregisterForAdmin(String userId) async {
+    if (!FirebaseService.isInitialized) return;
+    try {
+      await FirebaseMessaging.instance.unsubscribeFromTopic('admins');
+      await FirebaseMessaging.instance.unsubscribeFromTopic('user_$userId');
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token == null) return;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('fcm_tokens')
+          .doc(token)
+          .delete();
+    } catch (e) {
+      debugPrint('[FCM] unregisterForAdmin failed: $e');
     }
   }
 

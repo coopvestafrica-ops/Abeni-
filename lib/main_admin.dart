@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'admin/admin_router.dart';
+import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/firebase_service.dart';
+import 'presentation/providers/providers.dart';
 
 /// Entry point for the **Abeni Admin** companion app.
 ///
@@ -14,15 +16,70 @@ import 'data/services/firebase_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.tryInit();
+  // Initialise FCM + local notifications for the admin app.
+  // ignore: unawaited_futures
+  NotificationService.instance.init();
   runApp(const ProviderScope(child: AbeniAdminApp()));
 }
 
-class AbeniAdminApp extends ConsumerWidget {
+class AbeniAdminApp extends ConsumerStatefulWidget {
   const AbeniAdminApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AbeniAdminApp> createState() => _AbeniAdminAppState();
+}
+
+class _AbeniAdminAppState extends ConsumerState<AbeniAdminApp> {
+  String? _registeredAdminId;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupNotificationNavigation();
+  }
+
+  void _setupNotificationNavigation() {
+    // Handle cold-start tap (app was launched by a notification).
+    NotificationService.instance.handleInitialMessage();
+
+    // Listen for all tap events and navigate via the admin router.
+    NotificationService.instance.onNotificationTap.listen((route) {
+      final router = ref.read(adminRouterProvider);
+      final user = ref.read(currentUserProvider);
+      if (user != null && user.isAdminOrStaff) {
+        router.push(route);
+      }
+    });
+  }
+
+  /// Keep FCM topic registration in sync with the logged-in admin user.
+  void _syncAdminFcm(String? userId) {
+    if (userId == _registeredAdminId) return;
+
+    // Unregister previous admin if any.
+    if (_registeredAdminId != null) {
+      NotificationService.instance.unregisterForAdmin(_registeredAdminId!);
+    }
+
+    _registeredAdminId = userId;
+
+    if (userId != null) {
+      NotificationService.instance.registerForAdmin(userId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(adminRouterProvider);
+
+    // Watch auth state and keep FCM registration up to date.
+    final user = ref.watch(currentUserProvider);
+    if (user != null && user.isAdminOrStaff) {
+      _syncAdminFcm(user.id);
+    } else {
+      _syncAdminFcm(null);
+    }
+
     return MaterialApp.router(
       title: 'Abeni Admin',
       debugShowCheckedModeBanner: false,
