@@ -713,7 +713,65 @@ class _UnitEditor extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          // Quick restock row — tap to add to current stock without typing.
+          Row(
+            children: [
+              const Text(
+                'Quick restock:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              for (final amount in [10, 25, 50]) ...[
+                _RestockChip(
+                  amount: amount,
+                  onTap: () {
+                    final current =
+                        int.tryParse(draft.stock.text.trim()) ?? 0;
+                    draft.stock.text = (current + amount).toString();
+                    onChanged();
+                  },
+                ),
+                const SizedBox(width: 6),
+              ],
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _RestockChip extends StatelessWidget {
+  const _RestockChip({required this.amount, required this.onTap});
+
+  final int amount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Text(
+          '+$amount',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.primary,
+          ),
+        ),
       ),
     );
   }
