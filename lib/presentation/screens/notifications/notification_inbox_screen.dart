@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 
+enum _MenuAction { markAllRead, clearAll }
+
 class NotificationInboxScreen extends ConsumerWidget {
   const NotificationInboxScreen({super.key});
 
@@ -26,10 +28,42 @@ class NotificationInboxScreen extends ConsumerWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed: () => _markAllRead(user.id),
-            child: const Text('Mark all read',
-                style: TextStyle(color: AppColors.primary, fontSize: 13)),
+          PopupMenuButton<_MenuAction>(
+            tooltip: 'Options',
+            onSelected: (action) {
+              switch (action) {
+                case _MenuAction.markAllRead:
+                  _markAllRead(user.id);
+                case _MenuAction.clearAll:
+                  _confirmClearAll(context, user.id);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: _MenuAction.markAllRead,
+                child: Row(
+                  children: [
+                    Icon(Icons.done_all_rounded,
+                        size: 20, color: AppColors.primary),
+                    SizedBox(width: 10),
+                    Text('Mark all as read'),
+                  ],
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: _MenuAction.clearAll,
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_rounded,
+                        size: 20, color: AppColors.error),
+                    SizedBox(width: 10),
+                    Text('Clear all notifications',
+                        style: TextStyle(color: AppColors.error)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -172,6 +206,49 @@ class NotificationInboxScreen extends ConsumerWidget {
       ),
     );
     return result ?? false;
+  }
+
+  Future<void> _confirmClearAll(
+      BuildContext context, String userId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear all notifications?'),
+        content: const Text(
+          'All notifications will be permanently deleted. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Clear all',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    _clearAll(userId);
+  }
+
+  void _clearAll(String userId) {
+    FirebaseFirestore.instance
+        .collection('customer_messages')
+        .where('userId', isEqualTo: userId)
+        .get()
+        .then((snap) {
+      if (snap.docs.isEmpty) return;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      batch.commit();
+    }).catchError((_) {});
   }
 }
 
