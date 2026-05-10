@@ -8,6 +8,8 @@
  *   4. orders/{id} (created)   → push to "admins" topic on new order.
  *   5. users/{uid}             → set Firebase Auth custom claims when the
  *                                user's `role` field changes (admin/staff).
+ *   6. products/{productId}    → push to "admins" topic when any unit's
+ *                                stock drops to ≤3 (low stock alert).
  *
  * Deploy:
  *     cd functions && npm install
@@ -25,6 +27,8 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 
 const db = admin.firestore();
 const fcm = admin.messaging();
+
+const LOW_STOCK_THRESHOLD = 3;
 
 // --------------------------------------------------------------------------- //
 // 1. Per-customer push: triggered by writes to /customer_messages.            //
@@ -289,6 +293,105 @@ exports.onUserRoleChanged = onDocumentWritten(
       });
     } catch (e) {
       logger.error(`Failed to set custom claims for uid=${uid}`, e);
+    }
+  }
+);
+
+// --------------------------------------------------------------------------- //
+// 6. Low-stock alert → notify admins when a product unit stock drops to ≤3.  //
+//    Only fires when stock crosses the threshold (not on every save).         //
+// --------------------------------------------------------------------------- //
+exports.onProductStockChanged = onDocumentWritten(
+  "products/{productId}",
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+
+    // Ignore deletions and new products (no "before" stock to compare).
+    if (!before || !after) return;
+
+    const productName = after.productName || after.name || "Unknown product";
+    const beforeUnits = Array.isArray(before.units) ? before.units : [];
+    const afterUnits = Array.isArray(after.units) ? after.units : [];
+
+    // Build a map of unitName → stock for the "before" snapshot.
+    const beforeStockMap = {};
+    for (const u of beforeUnits) {
+      if (u.unitName) beforeStockMap[u.unitName] = typeof u.stock === "number" ? u.stock : 0;
+    }
+
+    // Find units that just crossed the low-stock threshold.
+    const alerts = [];
+    for (const u of afterUnits) {
+      if (!u.unitName) continue;
+      const newStock = typeof u.stock === "number" ? u.stock : 0;
+      const oldStock = typeof beforeStockMap[u.unitName] === "number"
+        ? beforeStockMap[u.unitName]
+        : newStock + 1; // treat missing-before as above threshold
+
+      const wasAbove = oldStock > LOW_STOCK_THRESHOLD;
+      const isNowAtOrBelow = newStock <= LOW_STOCK_THRESHOLD;
+
+      if (wasAbove && isNowAtOrBelow) {
+        alerts.push({ unitName: u.unitName, stock: newStock });
+      }
+    }
+
+    if (alerts.length === 0) return;
+
+    // Build one notification covering all newly low/out-of-stock units.
+    const outOfStock = alerts.filter((a) => a.stock === 0);
+    const lowStock = alerts.filter((a) => a.stock > 0);
+
+    let title;
+    let body;
+
+    if (outOfStock.length > 0 && lowStock.length === 0) {
+      const units = outOfStock.map((a) => a.unitName).join(", ");
+      title = `⚠️ Out of stock: ${productName}`;
+      body = `${units} — completely out of stock. Restock soon!`;
+    } else if (outOfStock.length === 0) {
+      const units = lowStock.map((a) => `${a.unitName} (${a.stock} left)`).join(", ");
+      title = `📦 Low stock: ${productName}`;
+      body = `${units} — running low. Consider restocking.`;
+    } else {
+      const outStr = outOfStock.map((a) => a.unitName).join(", ");
+      const lowStr = lowStock.map((a) => `${a.unitName} (${a.stock} left)`).join(", ");
+      title = `⚠️ Stock alert: ${productName}`;
+      body = `Out of stock: ${outStr}. Low stock: ${lowStr}.`;
+    }
+
+    const message = {
+      topic: "admins",
+      notification: { title, body },
+      data: stringifyData({
+        type: "low_stock",
+        productId: event.params.productId,
+        productName,
+      }),
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "abeni_admin_orders",
+          sound: "default",
+          defaultSound: true,
+          vibrateTimingsMillis: [0, 400, 200, 400],
+        },
+      },
+      apns: {
+        payload: { aps: { sound: "default", badge: 1 } },
+      },
+    };
+
+    try {
+      const id = await fcm.send(message);
+      logger.info("Low-stock alert sent", {
+        id,
+        productId: event.params.productId,
+        alerts,
+      });
+    } catch (e) {
+      logger.error("Low-stock alert failed", { productId: event.params.productId, error: e });
     }
   }
 );
