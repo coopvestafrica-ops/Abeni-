@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/notification_permission_sheet.dart';
 import '../../data/models/order.dart';
 import '../data/admin_providers.dart';
 import 'customers/customers_screen.dart';
@@ -21,6 +22,17 @@ class AdminShell extends ConsumerStatefulWidget {
 
 class _AdminShellState extends ConsumerState<AdminShell> {
   late int _index = widget.initialTab;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show the notification permission prompt after the first frame so the
+    // admin sees the dashboard before the sheet slides up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      NotificationPermissionSheet.showIfNeeded(context, isAdmin: true);
+    });
+  }
 
   static const _screens = <Widget>[
     DashboardScreen(),

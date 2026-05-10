@@ -108,12 +108,9 @@ class NotificationService {
     if (!FirebaseService.isInitialized) return;
     _inited = true;
 
-    // Request permission (Android 13+, iOS).
-    await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    // Note: permission is NOT requested here. It is requested via
+    // NotificationPermissionSheet.showIfNeeded() after the home screen is
+    // visible so the user sees a friendly explanation before the OS dialog.
 
     // Show foreground FCM alerts as banners with sound on iOS.
     await FirebaseMessaging.instance

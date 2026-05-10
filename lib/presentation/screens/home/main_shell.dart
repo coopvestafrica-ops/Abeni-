@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/notification_permission_sheet.dart';
 import '../../providers/providers.dart';
 import '../cart/cart_screen.dart';
 import '../notifications/notification_inbox_screen.dart';
@@ -18,6 +19,17 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show the notification permission prompt after the first frame so the
+    // user sees the home screen before the sheet slides up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      NotificationPermissionSheet.showIfNeeded(context);
+    });
+  }
 
   static const _pages = <Widget>[
     HomeScreen(),
