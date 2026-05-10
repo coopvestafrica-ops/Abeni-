@@ -66,21 +66,51 @@ class NotificationInboxScreen extends ConsumerWidget {
               final ts = data['createdAt'] as Timestamp?;
               final time = ts != null ? ts.toDate() : null;
 
-              return _NotifCard(
-                docId: docId,
-                userId: user.id,
-                isRead: isRead,
-                title: title,
-                body: body,
-                type: type,
-                orderId: orderId,
-                time: time,
-                onTap: () {
-                  _markRead(docId);
-                  if (orderId.isNotEmpty) {
-                    context.push('/order-tracking/$orderId');
-                  }
-                },
+              return Dismissible(
+                key: ValueKey(docId),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.delete_outline_rounded,
+                          color: Colors.white, size: 26),
+                      SizedBox(height: 4),
+                      Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                confirmDismiss: (_) => _confirmDelete(context),
+                onDismissed: (_) => _deleteNotif(docId),
+                child: _NotifCard(
+                  docId: docId,
+                  userId: user.id,
+                  isRead: isRead,
+                  title: title,
+                  body: body,
+                  type: type,
+                  orderId: orderId,
+                  time: time,
+                  onTap: () {
+                    _markRead(docId);
+                    if (orderId.isNotEmpty) {
+                      context.push('/order-tracking/$orderId');
+                    }
+                  },
+                ),
               );
             },
           );
@@ -109,6 +139,39 @@ class NotificationInboxScreen extends ConsumerWidget {
       }
       batch.commit();
     });
+  }
+
+  void _deleteNotif(String docId) {
+    FirebaseFirestore.instance
+        .collection('customer_messages')
+        .doc(docId)
+        .delete()
+        .catchError((_) {});
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete notification?'),
+        content:
+            const Text('This notification will be permanently removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 }
 
@@ -173,7 +236,9 @@ class _NotifCard extends StatelessWidget {
           color: isRead ? Colors.white : AppColors.primary.withOpacity(0.05),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isRead ? AppColors.divider : AppColors.primary.withOpacity(0.3),
+            color: isRead
+                ? AppColors.divider
+                : AppColors.primary.withOpacity(0.3),
             width: isRead ? 1 : 1.4,
           ),
         ),
@@ -200,7 +265,8 @@ class _NotifCard extends StatelessWidget {
                         child: Text(
                           title,
                           style: TextStyle(
-                            fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                            fontWeight:
+                                isRead ? FontWeight.w600 : FontWeight.w800,
                             fontSize: 14,
                           ),
                         ),
