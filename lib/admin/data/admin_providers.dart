@@ -134,6 +134,33 @@ final adminTopProductsProvider =
   });
 });
 
+/// Today's top-selling product by units sold (null if no orders today).
+final adminTodayTopProductProvider =
+    Provider<AsyncValue<TopProduct?>>((ref) {
+  final orders = ref.watch(adminAllOrdersProvider);
+  return orders.whenData((list) {
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day);
+    final todayOrders = list.where((o) =>
+        o.createdAt.isAfter(start) && o.status != OrderStatus.cancelled);
+
+    final byName = <String, TopProduct>{};
+    for (final o in todayOrders) {
+      for (final line in o.items) {
+        final cur = byName[line.productName];
+        byName[line.productName] = TopProduct(
+          productName: line.productName,
+          unitsSold: (cur?.unitsSold ?? 0) + line.quantity,
+          revenue: (cur?.revenue ?? 0) + line.lineTotal,
+        );
+      }
+    }
+    if (byName.isEmpty) return null;
+    return byName.values.toList()
+      ..sort((a, b) => b.unitsSold.compareTo(a.unitsSold));
+  }).whenData((sorted) => sorted?.isNotEmpty == true ? sorted!.first : null);
+});
+
 /// Inventory items that are low or out of stock.
 final adminLowStockProvider = Provider<AsyncValue<List<Product>>>((ref) {
   final products = ref.watch(adminAllProductsProvider);

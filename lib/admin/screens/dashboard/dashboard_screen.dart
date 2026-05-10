@@ -16,6 +16,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final today = ref.watch(adminTodaySummaryProvider);
+    final todayTop = ref.watch(adminTodayTopProductProvider);
     final week = ref.watch(adminWeekSummaryProvider);
     final month = ref.watch(adminMonthSummaryProvider);
     final orders = ref.watch(adminAllOrdersProvider);
@@ -50,11 +51,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           // Sales summary cards
-          _SummaryCard(
-            label: 'Today',
-            color: AppColors.primary,
-            asyncValue: today,
-          ),
+          _TodayDetailCard(summary: today, topProduct: todayTop),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -256,6 +253,162 @@ class DashboardScreen extends ConsumerWidget {
             error: (e, _) => _ErrorBox(message: '$e'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────── //
+// Today detail card — revenue, order count, and today's top product.        //
+// ─────────────────────────────────────────────────────────────────────────── //
+class _TodayDetailCard extends StatelessWidget {
+  const _TodayDetailCard({
+    required this.summary,
+    required this.topProduct,
+  });
+
+  final AsyncValue<SalesSummary> summary;
+  final AsyncValue<TopProduct?> topProduct;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primary, AppColors.primaryLight],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: summary.when(
+        loading: () => const SizedBox(
+          height: 80,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            ),
+          ),
+        ),
+        error: (e, _) => Text('$e',
+            style: const TextStyle(color: Colors.white, fontSize: 12)),
+        data: (s) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header row
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.today_rounded,
+                      color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Today',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            // Revenue
+            Text(
+              _money(s.revenue),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 32,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${s.orderCount} order${s.orderCount == 1 ? '' : 's'} today',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.85),
+                fontSize: 13,
+              ),
+            ),
+            // Divider + top product row
+            if (topProduct.hasValue && topProduct.value != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(
+                  color: Colors.white.withOpacity(0.2),
+                  height: 1,
+                ),
+              ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: const Icon(Icons.emoji_events_rounded,
+                        color: AppColors.accent, size: 14),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Top product today',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          topProduct.value!.productName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${topProduct.value!.unitsSold} sold',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
