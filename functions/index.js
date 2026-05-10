@@ -65,7 +65,7 @@ exports.onCustomerMessageCreated = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          channelId: "abeni_order_updates",
+          channelId: "abeni_order_updates_v2",
           sound: "default",
           defaultSound: true,
           vibrateTimingsMillis: [0, 250, 250, 250],
@@ -108,7 +108,7 @@ exports.onBroadcastCreated = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          channelId: "abeni_order_updates",
+          channelId: "abeni_order_updates_v2",
           sound: "default",
           defaultSound: true,
         },
@@ -187,7 +187,7 @@ exports.onOrderStatusChanged = onDocumentWritten(
       android: {
         priority: "high",
         notification: {
-          channelId: "abeni_order_updates",
+          channelId: "abeni_order_updates_v2",
           sound: "default",
           defaultSound: true,
           vibrateTimingsMillis: [0, 250, 250, 250],
@@ -239,7 +239,7 @@ exports.onNewOrderCreated = onDocumentCreated(
       android: {
         priority: "high",
         notification: {
-          channelId: "abeni_admin_orders",
+          channelId: "abeni_admin_orders_v2",
           sound: "default",
           defaultSound: true,
           vibrateTimingsMillis: [0, 300, 200, 300],
@@ -372,7 +372,7 @@ exports.onProductStockChanged = onDocumentWritten(
       android: {
         priority: "high",
         notification: {
-          channelId: "abeni_admin_orders",
+          channelId: "abeni_admin_orders_v2",
           sound: "default",
           defaultSound: true,
           vibrateTimingsMillis: [0, 400, 200, 400],

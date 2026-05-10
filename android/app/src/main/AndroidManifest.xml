@@ -63,9 +63,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <!-- Show a heads-up notification even when the app is in the background -->
+        <!-- Default FCM notification channel for background/terminated delivery.
+             Must match the channel ID created in NotificationService.orderChannel. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="abeni_order_updates" />
+            android:value="abeni_order_updates_v2" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

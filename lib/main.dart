@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,8 +12,15 @@ import 'presentation/providers/providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FirebaseService.tryInit();
-  // ignore: unawaited_futures
-  NotificationService.instance.init();
+
+  // Register the background handler BEFORE runApp — Firebase Messaging
+  // requires this to happen in main() before the app widget tree is built.
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  // Await init so notification channels are created with sound BEFORE
+  // the app starts receiving any FCM messages.
+  await NotificationService.instance.init();
+
   runApp(const ProviderScope(child: AbeniMartApp()));
 }
 

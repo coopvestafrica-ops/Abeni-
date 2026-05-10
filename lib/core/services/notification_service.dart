@@ -7,18 +7,59 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../data/services/firebase_service.dart';
 
-/// Initialises Firebase Cloud Messaging for order status updates.
+/// Top-level FCM background message handler.
 ///
-/// Tap-to-navigate:
-///   - Cold-start tap   → handled via getInitialMessage() in main.dart
-///   - Background tap   → handled via onMessageOpenedApp stream
-///   - Foreground push  → shown via local notifications; tap navigates too
-///
-/// Navigation events are emitted on [onNotificationTap] — subscribe in
-/// main.dart and route with GoRouter.
+/// Must be a top-level function (not a class method) and must be registered
+/// via [FirebaseMessaging.onBackgroundMessage] BEFORE [runApp] is called.
+/// Android FCM automatically shows notifications for messages that contain a
+/// `notification` payload. This handler covers data-only messages and ensures
+/// the notification channels exist so Android can play sound.
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM bg] ${message.messageId} ${message.data}');
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // For messages that carry a notification payload, Android FCM handles
+  // display automatically — we just need the channels to exist.
+  // For data-only messages we show a local notification manually.
+  if (message.notification != null) return;
+
+  // Data-only message in background/terminated state — show manually.
+  final plugin = FlutterLocalNotificationsPlugin();
+  const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await plugin.initialize(
+    const InitializationSettings(android: androidInit),
+  );
+
+  final androidPlugin =
+      plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+
+  // Re-create channels so they definitely exist with sound enabled.
+  await androidPlugin?.createNotificationChannel(
+      NotificationService.orderChannel);
+  await androidPlugin?.createNotificationChannel(
+      NotificationService.adminChannel);
+
+  final type = message.data['type'] as String? ?? '';
+  final isAdmin =
+      type == 'new_order' || type == 'low_stock';
+  final channel =
+      isAdmin ? NotificationService.adminChannel : NotificationService.orderChannel;
+
+  await plugin.show(
+    message.hashCode,
+    message.data['title'] as String? ?? 'Abeni Mart',
+    message.data['body'] as String? ?? '',
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
+        importance: channel.importance,
+        priority: isAdmin ? Priority.max : Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+    ),
+  );
 }
 
 class NotificationService {
@@ -26,23 +67,25 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   /// High-importance channel with sound — used for order updates (customers).
-  static const AndroidNotificationChannel _orderChannel =
+  /// Exposed as static so the background handler can access them.
+  static const AndroidNotificationChannel orderChannel =
       AndroidNotificationChannel(
-    'abeni_order_updates',
+    'abeni_order_updates_v2',
     'Order updates',
     description:
         'Status updates for your Abeni Mart orders: processing, out for delivery, delivered.',
-    importance: Importance.high,
+    importance: Importance.max,
     playSound: true,
     enableVibration: true,
   );
 
-  /// Max-importance channel for new order alerts (admin/staff).
-  static const AndroidNotificationChannel _adminChannel =
+  /// Max-importance channel for new order and stock alerts (admin/staff).
+  static const AndroidNotificationChannel adminChannel =
       AndroidNotificationChannel(
-    'abeni_admin_orders',
-    'New order alerts',
-    description: 'New order and important store alerts for Abeni Mart admins.',
+    'abeni_admin_orders_v2',
+    'Admin alerts',
+    description:
+        'New order and stock alerts for Abeni Mart admins and staff.',
     importance: Importance.max,
     playSound: true,
     enableVibration: true,
@@ -59,19 +102,20 @@ class NotificationService {
   bool _inited = false;
 
   /// Initialise FCM + local notifications. Safe to call multiple times.
+  /// Must be awaited in main() BEFORE runApp().
   Future<void> init() async {
     if (_inited) return;
     if (!FirebaseService.isInitialized) return;
     _inited = true;
 
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
+    // Request permission (Android 13+, iOS).
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
       badge: true,
       sound: true,
     );
 
+    // Show foreground FCM alerts as banners with sound on iOS.
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
       alert: true,
@@ -100,9 +144,15 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
 
-    // Create both notification channels.
-    await androidPlugin?.createNotificationChannel(_orderChannel);
-    await androidPlugin?.createNotificationChannel(_adminChannel);
+    // Delete old channel IDs (without _v2 suffix) to force Android to
+    // recreate them with the correct importance + sound settings.
+    await androidPlugin?.deleteNotificationChannel('abeni_order_updates');
+    await androidPlugin?.deleteNotificationChannel('abeni_admin_orders');
+
+    // Create the versioned channels — Importance.max guarantees heads-up
+    // display and sound even when the phone is in DND or screen-off.
+    await androidPlugin?.createNotificationChannel(orderChannel);
+    await androidPlugin?.createNotificationChannel(adminChannel);
 
     // Foreground FCM push → show as local notification with sound.
     FirebaseMessaging.onMessage.listen(_showForegroundNotification);
@@ -129,10 +179,9 @@ class NotificationService {
     if (notif == null) return;
     final payload = _routeFromMessage(message);
 
-    // Use admin channel for new-order alerts, order channel for everything else.
     final type = message.data['type'] as String? ?? '';
-    final isAdminAlert = type == 'new_order';
-    final channel = isAdminAlert ? _adminChannel : _orderChannel;
+    final isAdminAlert = type == 'new_order' || type == 'low_stock';
+    final channel = isAdminAlert ? adminChannel : orderChannel;
 
     await _local.show(
       message.hashCode,
@@ -147,7 +196,6 @@ class NotificationService {
           priority: isAdminAlert ? Priority.max : Priority.high,
           playSound: true,
           enableVibration: true,
-          sound: null,
         ),
         iOS: const DarwinNotificationDetails(
           presentSound: true,
@@ -162,7 +210,7 @@ class NotificationService {
   /// Derives a GoRouter route path from an FCM message's data payload.
   String? _routeFromMessage(RemoteMessage message) {
     final type = message.data['type'] as String?;
-    if (type == 'new_order') return '/orders';
+    if (type == 'new_order' || type == 'low_stock') return '/orders';
     final orderId = message.data['orderId'];
     if (orderId != null && (orderId as String).isNotEmpty) return '/orders';
     if (type == 'broadcast') return '/home';
@@ -210,7 +258,7 @@ class NotificationService {
   }
 
   /// Registers an admin/staff device's FCM token and subscribes to the
-  /// `admins` topic so they receive new-order push notifications.
+  /// `admins` topic so they receive new-order and stock-alert pushes.
   Future<void> registerForAdmin(String userId) async {
     if (!FirebaseService.isInitialized) return;
     try {
