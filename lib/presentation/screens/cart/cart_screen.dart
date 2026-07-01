@@ -9,6 +9,7 @@ import '../../providers/providers.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/product_image.dart';
 
+/// Enterprise Cart Screen with premium design
 class CartScreen extends ConsumerWidget {
   final bool embedded;
   const CartScreen({super.key, this.embedded = false});
@@ -26,31 +27,69 @@ class CartScreen extends ConsumerWidget {
                 child: ListView.separated(
                   padding: const EdgeInsets.all(20),
                   itemCount: cart.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
                   itemBuilder: (_, i) {
                     final item = cart.items[i];
-                    return _CartTile(
+                    return _EnterpriseCartTile(
                       item: item,
-                      onIncrement: () => notifier.updateQuantity(
-                          item.key, item.quantity + 1),
-                      onDecrement: () => notifier.updateQuantity(
-                          item.key, item.quantity - 1),
+                      onIncrement: () =>
+                          notifier.updateQuantity(item.key, item.quantity + 1),
+                      onDecrement: () =>
+                          notifier.updateQuantity(item.key, item.quantity - 1),
                       onRemove: () => notifier.removeItem(item.key),
                     );
                   },
                 ),
               ),
-              _CartSummary(
+              _EnterpriseCartSummary(
                 subtotal: cart.subtotal,
+                itemCount: cart.items.length,
                 onCheckout: () => context.push('/checkout'),
               ),
             ],
           );
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('My Cart'),
+        title: const Text('Shopping Cart'),
         automaticallyImplyLeading: !embedded,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          if (cart.items.isNotEmpty)
+            TextButton.icon(
+              onPressed: () {
+                // Clear cart confirmation
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Clear Cart?'),
+                    content: const Text(
+                        'Are you sure you want to remove all items from your cart?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () {
+                          notifier.clearCart();
+                          Navigator.pop(ctx);
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.error,
+                        ),
+                        child: const Text('Clear All'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              label: const Text('Clear'),
+            ),
+        ],
       ),
       body: body,
     );
@@ -65,40 +104,80 @@ class _EmptyCart extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Animated illustration
             Container(
-              width: 120,
-              height: 120,
+              width: 160,
+              height: 160,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(0.1),
+                    AppColors.primary.withOpacity(0.05),
+                  ],
+                ),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.shopping_bag_outlined,
-                size: 56,
-                color: AppColors.primary,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 72,
+                    color: AppColors.primary.withOpacity(0.3),
+                  ),
+                  Positioned(
+                    bottom: 30,
+                    right: 30,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
             const Text(
               'Your cart is empty',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Browse products and add your favourite foodstuff.',
+            const SizedBox(height: 12),
+            Text(
+              'Looks like you haven\'t added any items yet.\nStart shopping to fill your cart!',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 15,
+                height: 1.5,
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             SizedBox(
-              width: 220,
+              width: double.infinity,
+              height: 56,
               child: PrimaryButton(
                 label: 'Start Shopping',
                 icon: Icons.storefront_rounded,
@@ -112,13 +191,13 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-class _CartTile extends StatelessWidget {
+class _EnterpriseCartTile extends StatelessWidget {
   final CartItem item;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onRemove;
 
-  const _CartTile({
+  const _EnterpriseCartTile({
     required this.item,
     required this.onIncrement,
     required this.onDecrement,
@@ -127,170 +206,278 @@ class _CartTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
+    return Dismissible(
+      key: Key(item.key),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onRemove(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: AppColors.error,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.white,
+          size: 28,
+        ),
       ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 70,
-              height: 70,
-              child: Container(
-                color: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: AppColors.cardShadow(1),
+        ),
+        child: Row(
+          children: [
+            // Product Image
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                color: AppColors.backgroundSecondary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
                 child: ProductImage(
                   imageUrl: item.product.imageUrl,
                   fit: BoxFit.contain,
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.unit.unitName,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  formatNaira(item.lineTotal),
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              InkWell(
-                onTap: onRemove,
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.all(6),
-                  child: Icon(Icons.close_rounded,
-                      color: AppColors.textMuted, size: 18),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
+            const SizedBox(width: 16),
+            
+            // Product Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SmallIconButton(
-                    icon: Icons.remove_rounded,
-                    onTap: onDecrement,
+                  Text(
+                    item.product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      height: 1.2,
+                    ),
                   ),
+                  const SizedBox(height: 6),
                   Container(
-                    width: 30,
-                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Text(
-                      '${item.quantity}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
+                      item.unit.unitName,
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  _SmallIconButton(
-                    icon: Icons.add_rounded,
-                    onTap: onIncrement,
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        formatNaira(item.lineTotal),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 17,
+                        ),
+                      ),
+                      // Quantity controls
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundSecondary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _QuantityButton(
+                              icon: Icons.remove_rounded,
+                              onTap: onDecrement,
+                            ),
+                            Container(
+                              width: 40,
+                              alignment: Alignment.center,
+                              child: Text(
+                                '${item.quantity}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            _QuantityButton(
+                              icon: Icons.add_rounded,
+                              onTap: onIncrement,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SmallIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _SmallIconButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.primary.withOpacity(0.08),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 16, color: AppColors.primary),
-        ),
-      ),
-    );
-  }
-}
-
-class _CartSummary extends StatelessWidget {
-  final double subtotal;
-  final VoidCallback onCheckout;
-  const _CartSummary({required this.subtotal, required this.onCheckout});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.divider)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Subtotal',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                ),
-                Text(
-                  formatNaira(subtotal),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 20,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            PrimaryButton(
-              label: 'Proceed to Checkout',
-              icon: Icons.arrow_forward_rounded,
-              onPressed: onCheckout,
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _QuantityButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuantityButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          child: Icon(
+            icon,
+            size: 20,
+            color: AppColors.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EnterpriseCartSummary extends StatelessWidget {
+  final double subtotal;
+  final int itemCount;
+  final VoidCallback onCheckout;
+
+  const _EnterpriseCartSummary({
+    required this.subtotal,
+    required this.itemCount,
+    required this.onCheckout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const deliveryFee = 1500.0;
+    final total = subtotal + deliveryFee;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(32),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Order summary rows
+            _SummaryRow(
+              label: 'Subtotal ($itemCount items)',
+              value: formatNaira(subtotal),
+            ),
+            const SizedBox(height: 10),
+            _SummaryRow(
+              label: 'Delivery Fee',
+              value: formatNaira(deliveryFee),
+              valueColor: AppColors.textMuted,
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Divider(height: 1),
+            ),
+            _SummaryRow(
+              label: 'Total',
+              value: formatNaira(total),
+              isTotal: true,
+            ),
+            const SizedBox(height: 20),
+            
+            // Checkout button
+            SizedBox(
+              width: double.infinity,
+              height: 60,
+              child: PrimaryButton(
+                label: 'Proceed to Checkout',
+                icon: Icons.arrow_forward_rounded,
+                onPressed: onCheckout,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isTotal;
+  final Color? valueColor;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.isTotal = false,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: isTotal ? FontWeight.w800 : FontWeight.w500,
+            fontSize: isTotal ? 18 : 15,
+            color: isTotal ? AppColors.textPrimary : AppColors.textSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: isTotal ? 24 : 16,
+            color: valueColor ?? AppColors.primary,
+          ),
+        ),
+      ],
     );
   }
 }
